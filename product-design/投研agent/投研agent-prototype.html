@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>投研 Agent · 产品原型（脑暴 Demo）</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b26;
+    --bg-card: #1c2333;
+    --bg-hover: #232c42;
+    --border: #2a3350;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --text-faint: #5c6478;
+    --accent: #4f7cff;
+    --up: #ff5d5d;
+    --down: #2ecc8f;
+    --warn: #ffb648;
+    --info: #38bdf8;
+    --purple: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ===== 顶栏 ===== */
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 24px; height: 56px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .logo .dot { width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--purple)); }
+  nav { display: flex; gap: 4px; }
+  nav .tab {
+    padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    color: var(--text-dim); font-weight: 500; transition: all .15s;
+  }
+  nav .tab:hover { color: var(--text); background: var(--bg-hover); }
+  nav .tab.active { color: #fff; background: var(--accent); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .mkt-selector {
+    display: flex; gap: 2px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 8px; padding: 2px;
+  }
+  .mkt-selector span { padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-dim); transition: all .12s; }
+  .mkt-selector span.active { background: var(--accent); color: #fff; }
+  .scan-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .scan-status .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--down); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #4f7cff, #a78bfa); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+
+  .compliance {
+    text-align: center; font-size: 12px; color: var(--text-faint);
+    padding: 6px 24px; background: #12161f; border-bottom: 1px solid var(--border);
+  }
+
+  /* ===== 布局 ===== */
+  main { padding: 20px 24px 80px; max-width: 1440px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .grid-dashboard { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section-title h2::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--accent); }
+  .section-title .more { font-size: 12px; color: var(--text-dim); cursor: pointer; }
+
+  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+  /* ===== 大盘指数卡 ===== */
+  .index-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .index-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 18px; cursor: pointer; transition: all .12s; position: relative;
+  }
+  .index-card:hover { background: var(--bg-hover); }
+  .index-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .index-card .ix-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .index-card .ix-name { font-size: 13px; color: var(--text-dim); }
+  .index-card .ix-badge { font-size: 11px; color: var(--text-faint); background: #1a2132; padding: 2px 8px; border-radius: 4px; }
+  .index-card .ix-price { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .index-card .ix-chg { font-size: 14px; font-weight: 600; margin-left: 8px; }
+  .ix-chg.up { color: var(--up); }
+  .ix-chg.down { color: var(--down); }
+  .index-card .ix-note { margin-top: 5px; font-size: 11px; color: var(--text-faint); }
+
+  /* ===== 市场总览条 ===== */
+  .market-bar {
+    display: flex; gap: 26px; align-items: center; flex-wrap: wrap;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 18px; margin-bottom: 16px;
+  }
+  .mb-stat .k { font-size: 11px; color: var(--text-faint); margin-bottom: 3px; }
+  .mb-stat .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .mb-stat .v.up { color: var(--up); }
+  .mb-stat .v.down { color: var(--down); }
+  .mb-divider { width: 1px; height: 30px; background: var(--border); }
+  .mb-sectors { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+  .mb-sectors .lbl { font-size: 11px; color: var(--text-faint); margin-right: 2px; }
+  .sector-chip { padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sector-chip.up { background: rgba(255,93,93,.12); color: var(--up); }
+  .sector-chip.down { background: rgba(46,204,143,.12); color: var(--down); }
+
+  /* ===== 自选监控表 ===== */
+  table.watchlist { width: 100%; border-collapse: collapse; }
+  .watchlist th {
+    text-align: left; font-size: 12px; font-weight: 500; color: var(--text-faint);
+    padding: 10px 12px; border-bottom: 1px solid var(--border); background: #141926; white-space: nowrap;
+  }
+  .watchlist td { padding: 12px; border-bottom: 1px solid #1f2637; white-space: nowrap; vertical-align: middle; }
+  .watchlist tr.row { cursor: pointer; transition: background .12s; }
+  .watchlist tr.row:hover { background: var(--bg-hover); }
+  .watchlist tr.row.selected { background: #1e2a4a; box-shadow: inset 3px 0 0 var(--accent); }
+  .sym { display: flex; flex-direction: column; gap: 2px; }
+  .sym .ticker { font-weight: 600; font-size: 14px; }
+  .sym .name { font-size: 12px; color: var(--text-dim); }
+  .price { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .chg { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .chg.up { color: var(--up); }
+  .chg.down { color: var(--down); }
+  .num { font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 13px; }
+  .num .sub { font-size: 11px; }
+
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; margin: 2px 2px; }
+  .tag.hot { background: rgba(255,93,93,.14); color: var(--up); }
+  .tag.outflow { background: rgba(46,204,143,.14); color: var(--down); }
+  .tag.catalyst { background: rgba(79,124,255,.16); color: #7d9aff; }
+  .tag.risk { background: rgba(255,182,72,.14); color: var(--warn); }
+
+  .sig-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; font-size: 12px; }
+  .sig-1 { background: rgba(92,100,120,.2); color: var(--text-dim); }
+  .sig-2 { background: rgba(56,189,248,.14); color: var(--info); }
+  .sig-3 { background: rgba(255,182,72,.16); color: var(--warn); font-weight: 600; }
+  .sig-3::before { content: "●"; font-size: 8px; }
+
+  /* ===== 详情区 ===== */
+  .detail-head {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .detail-head .big-price { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail-head .big-chg { font-size: 16px; font-weight: 600; }
+  .detail-head .big-chg.up { color: var(--up); }
+  .detail-head .big-chg.down { color: var(--down); }
+  .detail-meta { margin-left: auto; display: flex; gap: 20px; text-align: right; }
+  .detail-meta .m .k { font-size: 11px; color: var(--text-faint); }
+  .detail-meta .m .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .detail-body { display: grid; grid-template-columns: 1fr 280px; }
+
+  /* AI 解读五段式 */
+  .interpret { padding: 16px 20px; }
+  .interpret .ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .interpret .ai-head .ai-badge {
+    background: linear-gradient(135deg, #4f7cff, #a78bfa); color: #fff;
+    padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  }
+  .interpret .ai-head .time { font-size: 12px; color: var(--text-faint); }
+  .seg { margin-bottom: 14px; }
+  .seg h4 { font-size: 13px; color: var(--accent); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+  .seg h4 .idx {
+    width: 16px; height: 16px; border-radius: 4px; background: rgba(79,124,255,.18);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #7d9aff;
+  }
+  .seg p { font-size: 13px; line-height: 1.7; color: #c3c9d8; }
+  .seg .src { margin-top: 4px; font-size: 11px; color: var(--text-faint); }
+  .seg .src span { background: #1a2132; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+  .interpret .disclaim { margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+
+  /* 期权/资金 右侧面板 */
+  .options-panel { border-left: 1px solid var(--border); padding: 16px; background: #141926; }
+  .options-panel h4 { font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .pcr-bar { margin-bottom: 14px; }
+  .pcr-bar .lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+  .pcr-bar .track { height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--down), #2a3350 45%, #2a3350 55%, var(--up)); position: relative; }
+  .pcr-bar .marker { position: absolute; top: -3px; width: 3px; height: 14px; background: #fff; border-radius: 2px; }
+  .opt-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #1f2637; font-size: 13px; }
+  .opt-row .k { color: var(--text-dim); }
+  .opt-row .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .opt-row .v.up { color: var(--up); }
+  .opt-row .v.down { color: var(--down); }
+  .wall-viz { margin: 12px 0 4px; }
+  .wall-viz .wl { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .wall-viz .wl .wlbl { font-size: 11px; width: 56px; color: var(--text-dim); }
+  .wall-viz .wl .wbar { height: 14px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .wall-viz .call-bar { background: linear-gradient(90deg, rgba(255,93,93,.85), rgba(255,93,93,.55)); }
+  .wall-viz .put-bar { background: linear-gradient(90deg, rgba(46,204,143,.85), rgba(46,204,143,.55)); }
+  .gex-note { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--text-faint); background: rgba(255,182,72,.08); border: 1px solid rgba(255,182,72,.2); padding: 8px 10px; border-radius: 8px; }
+
+  /* ===== 预警流 ===== */
+  .alerts-feed { display: flex; flex-direction: column; }
+  .alert-item { padding: 12px 16px; border-bottom: 1px solid #1f2637; display: flex; gap: 10px; transition: background .12s; }
+  .alert-item:hover { background: var(--bg-hover); }
+  .alert-item .icon { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .icon.opt { background: rgba(167,139,250,.14); }
+  .icon.resonance { background: rgba(255,182,72,.14); }
+  .icon.news { background: rgba(56,189,248,.14); }
+  .icon.tech { background: rgba(79,124,255,.16); }
+  .alert-item .body .t { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .alert-item .body .d { font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .alert-item .body .meta { margin-top: 5px; font-size: 11px; color: var(--text-faint); display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert-item .body .meta .lvl3 { color: var(--warn); font-weight: 600; }
+
+  /* ===== 复盘报告 ===== */
+  .report-wrap { max-width: 860px; margin: 0 auto; }
+  .report-head { padding: 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #1a2135, var(--bg-panel)); }
+  .report-head h2 { font-size: 20px; margin-bottom: 6px; }
+  .report-head .sub { font-size: 13px; color: var(--text-dim); }
+  .report-sec { padding: 18px 24px; border-bottom: 1px solid #1f2637; }
+  .report-sec h3 { font-size: 14px; color: #7d9aff; margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .report-sec h3 .n { background: rgba(79,124,255,.16); width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .report-sec ul { list-style: none; }
+  .report-sec li { font-size: 13px; color: #c3c9d8; line-height: 1.9; padding-left: 14px; position: relative; }
+  .report-sec li::before { content: ""; position: absolute; left: 0; top: 11px; width: 5px; height: 5px; border-radius: 2px; background: var(--accent); }
+  .mini-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .mini-table th { font-size: 12px; color: var(--text-faint); text-align: left; padding: 6px 10px; background: #141926; border-bottom: 1px solid var(--border); }
+  .mini-table td { font-size: 13px; padding: 8px 10px; border-bottom: 1px solid #1f2637; }
+
+  /* ===== 问答 ===== */
+  .chat-wrap { max-width: 760px; margin: 0 auto; }
+  .chat-box { height: 480px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 82%; padding: 12px 16px; border-radius: 12px; font-size: 13px; line-height: 1.7; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.ai { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.ai .src-line { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+  .msg.ai .risk-line { margin-top: 6px; font-size: 11px; color: var(--warn); }
+  .chat-input { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); }
+  .chat-input input {
+    flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 14px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .chat-input input:focus { border-color: var(--accent); }
+  .chat-input button {
+    background: var(--accent); border: none; color: #fff; border-radius: 10px;
+    padding: 0 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .suggest { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 16px 14px; }
+  .suggest span {
+    font-size: 12px; color: var(--text-dim); background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; cursor: pointer;
+  }
+  .suggest span:hover { color: #7d9aff; border-color: var(--accent); }
+
+  /* ===== 板块景气视图 ===== */
+  .sector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .sector-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; cursor: pointer; transition: all .12s; display: flex; gap: 14px; align-items: center;
+  }
+  .sector-card:hover { background: var(--bg-hover); }
+  .sector-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .sector-card .ring {
+    width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sector-card .ring .ring-in {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--bg-panel);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .sector-card .sc-body { flex: 1; min-width: 0; }
+  .sector-card .sc-name { font-size: 14px; font-weight: 600; display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .sector-card .sc-chg { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+  .sc-chg.up { color: var(--up); }
+  .sc-chg.down { color: var(--down); }
+  .sector-card .sc-metrics { font-size: 11px; color: var(--text-faint); line-height: 1.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .grade-chip { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .grade-hi { background: rgba(255,93,93,.14); color: var(--up); }
+  .grade-mid { background: rgba(56,189,248,.14); color: var(--info); }
+  .grade-lo { background: rgba(46,204,143,.14); color: var(--down); }
+
+  .dim-rows { padding: 14px 16px; }
+  .dim-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .dim-row .dk { width: 62px; font-size: 12px; color: var(--text-dim); flex-shrink: 0; }
+  .dim-row .dtrack { flex: 1; height: 8px; border-radius: 4px; background: #232c42; overflow: hidden; }
+  .dim-row .dbar { height: 100%; border-radius: 4px; }
+  .dbar.pos { background: linear-gradient(90deg, #3d5fd9, var(--accent)); }
+  .dbar.warn { background: linear-gradient(90deg, #b07820, var(--warn)); }
+  .dim-row .dv { width: 30px; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; flex-shrink: 0; }
+  .dim-note { margin-top: 8px; font-size: 11px; color: var(--text-faint); }
+
+  .leaders-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  .leaders-table th { font-size: 11px; color: var(--text-faint); text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .leaders-table td { font-size: 12px; padding: 7px 8px; border-bottom: 1px solid #1f2637; }
+
+  .rot-map { position: relative; height: 340px; margin: 12px; border: 1px solid var(--border); border-radius: 10px; background: #12161f; overflow: hidden; }
+  .rot-map .axis-x, .rot-map .axis-y { position: absolute; background: #2a3350; }
+  .rot-map .axis-x { left: 0; right: 0; top: 50%; height: 1px; }
+  .rot-map .axis-y { top: 0; bottom: 0; left: 50%; width: 1px; }
+  .rot-map .quad-lbl { position: absolute; font-size: 11px; color: var(--text-faint); padding: 8px 10px; }
+  .rot-map .q1 { top: 0; right: 0; color: var(--up); }
+  .rot-map .q2 { top: 0; left: 0; color: var(--info); }
+  .rot-map .q3 { bottom: 0; left: 0; color: var(--down); }
+  .rot-map .q4 { bottom: 0; right: 0; color: var(--warn); }
+  .rot-dot {
+    position: absolute; transform: translate(-50%, -50%); cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 3px; z-index: 2;
+  }
+  .rot-dot .pt { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); }
+  .rot-dot .pt.hot { background: var(--up); }
+  .rot-dot .pt.cold { background: var(--down); }
+  .rot-dot .pt.mid { background: #6b7490; }
+  .rot-dot .pt.selected { box-shadow: 0 0 0 3px rgba(79,124,255,.4); border-color: #fff; }
+  .rot-dot .plbl { font-size: 11px; color: var(--text-dim); white-space: nowrap; background: rgba(18,22,31,.85); padding: 1px 6px; border-radius: 4px; }
+  .rot-dot:hover .plbl { color: #fff; }
+  .rot-note { padding: 10px 14px; font-size: 11px; color: var(--text-faint); line-height: 1.6; border-top: 1px solid var(--border); }
+
+  /* ===== 投研日志 ===== */
+  .journal-wrap { max-width: 860px; margin: 0 auto; }
+  .journal-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .journal-filters .jf {
+    font-size: 12px; color: var(--text-dim); background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 14px; cursor: pointer; transition: all .12s;
+  }
+  .journal-filters .jf.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+  .journal-filters .write-btn {
+    margin-left: auto; font-size: 12px; color: #fff; background: linear-gradient(135deg, #4f7cff, #a78bfa);
+    border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; font-weight: 600;
+  }
+  .j-entry {
+    display: flex; gap: 14px; padding: 16px; border-bottom: 1px solid #1f2637;
+  }
+  .j-entry:last-child { border-bottom: none; }
+  .j-entry .j-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .ji-report { background: rgba(79,124,255,.14); }
+  .ji-alert { background: rgba(255,182,72,.14); }
+  .ji-interp { background: rgba(167,139,250,.14); }
+  .ji-note { background: rgba(46,204,143,.14); }
+  .j-entry .j-body { flex: 1; min-width: 0; }
+  .j-entry .j-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .j-entry .j-title .j-tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 4px; background: #1a2132; color: var(--text-dim); }
+  .j-entry .j-text { font-size: 13px; color: var(--text-dim); line-height: 1.65; }
+  .j-entry .j-text b { color: #c3c9d8; }
+  .j-entry .j-foot { margin-top: 8px; display: flex; gap: 14px; font-size: 11px; color: var(--text-faint); }
+  .j-entry .j-foot span { cursor: pointer; }
+  .j-entry .j-foot span:hover { color: #7d9aff; }
+
+  /* ===== 事件日历 ===== */
+  .ev-day {
+    font-size: 12px; font-weight: 600; color: var(--text-dim);
+    padding: 12px 16px 6px; display: flex; gap: 8px; align-items: center;
+  }
+  .ev-day.today { color: var(--warn); }
+  .ev-day.today::after { content: "今天"; font-size: 10px; background: rgba(255,182,72,.16); color: var(--warn); padding: 1px 7px; border-radius: 4px; }
+  .ev-item {
+    display: flex; gap: 12px; align-items: center; padding: 11px 16px;
+    border-bottom: 1px solid #1f2637; cursor: pointer; transition: background .12s;
+  }
+  .ev-item:hover { background: var(--bg-hover); }
+  .ev-item.selected { background: #1e2a4a; box-shadow: inset 3px 0 0 var(--accent); }
+  .ev-item .ev-time { width: 46px; font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .ev-item .ev-main { flex: 1; min-width: 0; }
+  .ev-item .ev-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ev-item .ev-sub { font-size: 11px; color: var(--text-faint); }
+  .ev-type { font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; flex-shrink: 0; }
+  .et-macro { background: rgba(255,93,93,.13); color: var(--up); }
+  .et-earn { background: rgba(79,124,255,.15); color: #7d9aff; }
+  .et-opt { background: rgba(167,139,250,.14); color: var(--purple); }
+  .et-policy { background: rgba(255,182,72,.14); color: var(--warn); }
+  .et-link { background: rgba(56,189,248,.13); color: var(--info); }
+  .et-flash { background: rgba(46,204,143,.14); color: var(--down); }
+  .imp-dots { font-size: 9px; letter-spacing: 2px; flex-shrink: 0; }
+  .ev-status { font-size: 10px; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+  .st-wait { background: rgba(56,189,248,.13); color: var(--info); }
+  .st-near { background: rgba(255,182,72,.16); color: var(--warn); font-weight: 600; }
+  .st-done { background: rgba(92,100,120,.2); color: var(--text-faint); }
+  .ev-count { font-size: 11px; color: var(--warn); font-weight: 600; flex-shrink: 0; }
+  .flash-item { padding: 12px 16px; border-bottom: 1px solid #1f2637; display: flex; gap: 10px; }
+  .flash-item .fl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); margin-top: 5px; flex-shrink: 0; animation: pulse 2s infinite; }
+  .flash-item .fl-body .fl-t { font-size: 12.5px; font-weight: 600; margin-bottom: 3px; }
+  .flash-item .fl-body .fl-d { font-size: 11.5px; color: var(--text-dim); line-height: 1.55; }
+  .flash-item .fl-body .fl-meta { margin-top: 4px; font-size: 10.5px; color: var(--text-faint); }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(13,17,23,.92); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    text-align: center; padding: 8px; font-size: 11px; color: var(--text-faint); z-index: 99;
+  }
+
+  .legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2a3350; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .demo-note {
+    margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(79,124,255,.08); border: 1px dashed rgba(79,124,255,.35);
+    font-size: 12px; color: var(--text-dim); line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="dot"></div>投研 Agent</div>
+  <nav>
+    <div class="tab active" data-view="dashboard">监控看板</div>
+    <div class="tab" data-view="sector">板块景气</div>
+    <div class="tab" data-view="events">事件日历</div>
+    <div class="tab" data-view="report">每日复盘</div>
+    <div class="tab" data-view="journal">投研日志</div>
+    <div class="tab" data-view="chat">智能问答</div>
+  </nav>
+  <div class="header-right">
+    <div class="scan-status"><div class="pulse"></div>Agent 扫描中 · 距下次批量扫描 23 分钟</div>
+    <div class="mkt-selector">
+      <span class="active" data-mkt="us">美股</span><span data-mkt="hk">港股</span><span data-mkt="a">A股</span>
+    </div>
+    <div class="avatar">A</div>
+  </div>
+</header>
+
+<div class="compliance">本产品仅提供智能投研辅助，不构成任何投资建议；投资有风险，决策需自主承担</div>
+
+<main>
+
+  <!-- ============ 视图1：监控看板 ============ -->
+  <div class="view active" id="view-dashboard">
+    <!-- 大盘指数 -->
+    <div class="section-title">
+      <h2 id="index-title">大盘指数 · 美股</h2>
+      <div class="legend"><span style="font-size:12px;color:var(--text-faint)">点击指数卡片查看 AI 市场分析</span></div>
+    </div>
+    <div class="index-strip" id="index-strip"></div>
+
+    <!-- 市场总览条 -->
+    <div class="market-bar" id="market-bar"></div>
+
+    <div class="grid-dashboard">
+      <div>
+        <!-- 自选监控表 -->
+        <div class="section-title">
+          <h2 id="watchlist-title">自选监控 · 美股</h2>
+          <div class="legend">
+            <span class="sig-badge sig-1">一级 弱信号</span>
+            <span class="sig-badge sig-2">二级 关注</span>
+            <span class="sig-badge sig-3">三级 共振预警</span>
+          </div>
+        </div>
+        <div class="card">
+          <table class="watchlist">
+            <thead>
+              <tr>
+                <th>标的</th><th>现价</th><th>涨跌幅</th><th>成交量</th>
+                <th id="metric-th">P/C · IV</th><th>AI 状态</th><th>技术信号</th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body"></tbody>
+          </table>
+        </div>
+
+        <!-- 异动解读 + 期权/资金面板 -->
+        <div class="section-title" style="margin-top:18px">
+          <h2 id="detail-title">AI 市场分析 / 异动解读</h2>
+          <div class="more">历史解读归档 →</div>
+        </div>
+        <div class="card" id="detail-card"></div>
+
+        <div class="demo-note">
+          Demo 说明：点击顶部<b>指数卡片</b>查看大盘级 AI 分析，点击<b>自选行</b>查看个股解读；右上角切换<b>美股 / 港股 / A股</b>市场，全页面数据联动。数据均为演示假数据，仅用于展示产品形态：五段式结构化解读（可溯源）、期权墙/Max Pain/GEX（美股全量+港股高流动性标的）、A股主力资金结构、三级信号分级降噪。
+        </div>
+      </div>
+
+      <!-- 预警流 -->
+      <div>
+        <div class="section-title"><h2 id="alerts-title">实时预警推送</h2><div class="more">全部 24 条 →</div></div>
+        <div class="card alerts-feed" id="alerts-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图1.5：板块景气 ============ -->
+  <div class="view" id="view-sector">
+    <div class="section-title">
+      <h2 id="sector-view-title">板块景气 · 美股</h2>
+      <div class="legend"><span style="font-size:12px;color:var(--text-faint)">景气度 = 动量 × 资金 × 情绪 × 基本面 综合评分 · 点击卡片查看详情</span></div>
+    </div>
+    <div class="sector-grid" id="sector-grid"></div>
+
+    <div class="grid-dashboard">
+      <div>
+        <div class="section-title"><h2 id="sector-detail-title">板块解读</h2><div class="more">解读归档 →</div></div>
+        <div class="card" id="sector-detail"></div>
+        <div class="demo-note">
+          板块景气度为规则引擎计算的复合评分（动量/资金/情绪/基本面加权），<b>拥挤度为反向指标</b>——越高代表交易越拥挤、短线风险越大。轮动地图横轴为板块资金净流入、纵轴为相对大盘动量，四象限判断板块所处 lifecycle 阶段。
+        </div>
+      </div>
+      <div>
+        <div class="section-title"><h2>轮动地图 · 资金 × 动量</h2><div class="more">四象限</div></div>
+        <div class="card">
+          <div class="rot-map" id="rot-map">
+            <div class="axis-x"></div><div class="axis-y"></div>
+            <div class="quad-lbl q1">▲ 主升吸金（资金入·动量强）</div>
+            <div class="quad-lbl q2">◄ 资金承接（资金入·动量弱）</div>
+            <div class="quad-lbl q3">▼ 弱势失血（资金出·动量弱）</div>
+            <div class="quad-lbl q4">冲高兑现 ►（资金出·动量强）</div>
+          </div>
+          <div class="rot-note">气泡位置 = 板块 5 日资金净流入（横轴）× 20 日相对大盘动量（纵轴）· 点击气泡联动左侧解读 · 数据均为演示假数据</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图2：事件日历 ============ -->
+  <div class="view" id="view-events">
+    <div class="section-title">
+      <h2 id="events-view-title">事件日历与波动预警 · 美股</h2>
+      <div class="legend"><span style="font-size:12px;color:var(--text-faint)">宏观数据 / 央行会议 / 财报季 / 政策窗口 / 突发监测 · 点击事件查看 AI 解读</span></div>
+    </div>
+    <div class="grid-dashboard">
+      <div>
+        <div class="card" id="events-timeline"></div>
+        <div class="demo-note">
+          事件波动预警三层机制：<b>临近预警</b>（事件前 48h/24h，提示事件定价与仓位敞口）→ <b>落地预警</b>（数据公布即时推送实际值 vs 预期 + 首反应解读）→ <b>突发快讯</b>（7×24 突发事件流监测，滚动更新影响评估）。财报类事件联动期权 IV 数据（事件前 IV 飙升 = 博弈拥挤提示）。
+        </div>
+      </div>
+      <div>
+        <div class="section-title"><h2>AI 事件解读</h2></div>
+        <div class="card" id="event-detail"></div>
+        <div class="section-title" style="margin-top:14px"><h2>7×24 突发监测</h2><div class="more" style="display:flex;align-items:center;gap:6px"><span class="scan-status"><span class="pulse"></span>扫描中</span></div></div>
+        <div class="card" id="flash-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图2.5：每日复盘 ============ -->
+  <div class="view" id="view-report">
+    <div class="report-wrap">
+      <div class="card" id="report-card"></div>
+    </div>
+  </div>
+
+  <!-- ============ 视图4：投研日志 ============ -->
+  <div class="view" id="view-journal">
+    <div class="journal-wrap">
+      <div class="section-title">
+        <h2>投研日志 · 个人知识库</h2>
+        <div class="legend"><span style="font-size:12px;color:var(--text-faint)">自动归档复盘/预警/解读 + 手动笔记 · 已沉淀 127 条 · 日报连续 23 天</span></div>
+      </div>
+      <div class="journal-filters" id="journal-filters">
+        <span class="jf active" data-f="all">全部</span>
+        <span class="jf" data-f="report">复盘报告</span>
+        <span class="jf" data-f="alert">预警记录</span>
+        <span class="jf" data-f="interp">解读归档</span>
+        <span class="jf" data-f="note">我的笔记</span>
+        <button class="write-btn" onclick="alert('Demo：手动笔记编辑器（Markdown + 标的关联 + 图片）')">✍ 写笔记</button>
+      </div>
+      <div class="card" id="journal-list"></div>
+    </div>
+  </div>
+
+  <!-- ============ 视图3：智能问答 ============ -->
+  <div class="view" id="view-chat">
+    <div class="chat-wrap">
+      <div class="card">
+        <div class="chat-box" id="chat-box">
+          <div class="msg ai">
+            你好，我是投研问答 Agent。我只回答投研、行情、标的分析相关问题。所有回答基于实时数据并标注来源，不确定的信息我会直接告诉你「无法确认」。<br><br>试着问我：
+          </div>
+        </div>
+        <div class="suggest">
+          <span>NVDA 今天的 Call 扫单怎么看？</span>
+          <span>TSLA 的期权墙在哪？</span>
+          <span>今天大盘怎么样？</span>
+          <span>明天大盘会涨吗？</span>
+        </div>
+        <div class="chat-input">
+          <input id="chat-input" placeholder="输入投研相关问题…（闲聊、荐股类问题会被拒绝）">
+          <button onclick="sendChat()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>本产品仅提供智能投研辅助，所有输出不构成投资建议；投资有风险，决策需自主承担 · 投研 Agent Prototype v0.2</footer>
+
+<script>
+/* ================================================================
+   假数据：三个市场（美股 / 港股 / A股）
+================================================================ */
+const MARKETS = {
+  us: {
+    name: "美股", cur: "$", idxName: "美股",
+    indexes: [
+      {
+        ticker: "SPX", name: "标普 500", price: 5762.48, chg: 0.62, badge: "连涨 4 日",
+        note: "广度健康 · 正 GEX 压制波动",
+        meta: [["涨跌家数", "312 : 188"], ["VIX", "16.8 (-1.2)"], ["10Y 美债", "4.21% (-3bp)"], ["市场情绪", "62 · 中性偏暖"]],
+        interp: {
+          fact: "标普 500 今日 +0.62% 报 5762.48，连续第 4 个交易日收涨；涨跌家数 312 : 188，市场广度健康；VIX 收于 16.8（-1.2），10Y 美债收益率 4.21%（-3bp）。",
+          reason: "催化：市场对美商务部拟放宽部分半导体设备出口限制的预期升温，科技股领涨；今日无重要宏观数据，走势以板块驱动为主（来源：路透快讯、行情接口）。",
+          read: "正 GEX 环境延续，做市商对冲行为持续压制指数日内波动，指数呈现「低波动缓慢上移」特征。资金偏好大盘成长 + 高 Beta，广度与趋势同向，短期市场结构偏健康；但情绪连续 4 日偏暖后，短线拥挤度开始积累。",
+          risk: "周五 NVDA/TSLA 等月度期权集中到期，注意尾盘磁吸与波动放大；周四 9 月 CPI 数据若超预期，将直接冲击当前的降息定价（当前 11 月降息 25bp 概率约 78%）。",
+          track: "观察方向：5750（短期支撑）/ 5800（整数关口压力）；SPY 本月期权墙 $575 Put / $585 Call 为关键参考位。关注周四 CPI 与周五期权到期两个事件节点。",
+          srcs: ["行情接口·实时", "OPRA期权链", "CME FedWatch", "路透快讯"]
+        }
+      },
+      {
+        ticker: "IXIC", name: "纳斯达克综合", price: 18189.17, chg: 0.94, badge: "科技领涨",
+        note: "费半 +2.1% · 算力链强势",
+        meta: [["费城半导体", "+2.1%"], ["VIX", "16.8"], ["成交额", "$58.2B 综合市场"], ["市场情绪", "62 · 中性偏暖"]],
+        interp: {
+          fact: "纳指今日 +0.94% 报 18189.17，跑赢标普；费城半导体指数 +2.1%，为最强主要板块；纳指 100 内半导体权重股平均涨幅 2.4%。",
+          reason: "催化：出口限制放宽预期直接利好算力产业链，NVDA/AMD/AMAT 集体异动；叠加 10Y 美债收益率下行 3bp，成长风格分母端改善（来源：路透快讯、行情接口）。",
+          read: "半导体板块资金连续 3 日净流入，轮动从高位算力股向低位设备/材料股扩散，轮动健康度中等。成长风格相对占优，但需注意板块内部分化：设备股补涨通常出现在行情中后段。",
+          risk: "出口政策尚未正式落地，存在反复风险；半导体短线情绪偏热，若后续官宣不及预期，回吐压力集中。",
+          track: "观察方向：费半指数前高压力、纳指 18000 整数关口支撑；板块内关注高低切换节奏。",
+          srcs: ["行情接口·实时", "资金流·L2", "路透快讯"]
+        }
+      },
+      {
+        ticker: "DJI", name: "道琼斯工业", price: 42872.16, chg: -0.18, badge: "风格分化",
+        note: "防御板块走弱 · 高低切换",
+        meta: [["领涨板块", "半导体 +2.1%"], ["领跌板块", "能源 -0.8%"], ["VIX", "16.8"], ["市场情绪", "62 · 中性偏暖"]],
+        interp: {
+          fact: "道指今日 -0.18% 报 42872.16，与纳指明显分化；能源 -0.8%、医疗 -0.3% 领跌，资金自防御板块流出。",
+          reason: "无独立催化，属于典型的市场内部高低切换：风险偏好回升阶段，资金从防御（能源/医疗/公用事业）轮动至进攻（半导体/AI 软件）（来源：行情接口、板块资金流）。",
+          read: "道指与纳指的负向分化是风险偏好回升的典型特征，历史上该分化通常持续数个交易日后回归均衡。当前分化程度（约 1.1 个百分点）尚在正常区间。",
+          risk: "若风险偏好逆转（如 CPI 超预期），前期流出防御板块的资金回流速度会很快，纳指回撤弹性大于道指。",
+          track: "观察方向：道指 42800 平台支撑；防御/进攻板块的相对强弱比值为情绪拐点观察指标。",
+          srcs: ["行情接口·实时", "板块资金流"]
+        }
+      }
+    ],
+    marketBar: [
+      { k: "涨跌家数", v: "312 : 188", cls: "up" },
+      { k: "综合成交额", v: "$58.2B", cls: "" },
+      { k: "VIX 恐慌指数", v: "16.8 (-1.2)", cls: "down" },
+      { k: "市场情绪评分", v: "62 / 100 中性偏暖", cls: "up" },
+      { k: "Gamma 敞口", v: "正 GEX · 波动受抑", cls: "" }
+    ],
+    sectors: [
+      { n: "半导体", c: "+2.1%" }, { n: "AI 软件", c: "+1.4%" }, { n: "大型科技", c: "+0.9%" },
+      { n: "消费", c: "+0.5%" }, { n: "医疗", c: "-0.3%" }, { n: "能源", c: "-0.8%" }
+    ],
+    metricTh: "P/C · IV",
+    stocks: [
+      {
+        ticker: "NVDA", name: "英伟达", price: 132.46, chg: 3.21, vol: "4,210万",
+        metric: 'P/C 0.72 · IV 48.2 <span class="sub" style="color:var(--up)">+5.1</span>',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag catalyst">利好催化</span>'],
+        sig: "3", sigText: "放量突破+Call扫单+MACD金叉",
+        panel: "opt",
+        opt: { pcr: 0.72, pcrPos: 42, callWall: "$135 · 5.8万手", putWall: "$125 · 3.1万手", maxPain: "$130 (10/17)", gex: "正 GEX（压制波动）", expire: "10/17 到期" },
+        interp: {
+          fact: "今日 +3.21% 报 $132.46，成交量 4,210 万股（较 5 日均量放大 1.8 倍）；主力资金净流入 $2.8 亿；$135 Call 出现多笔 sweep 扫单合计 $480 万，单日 Vol/OI 达 5.6×。",
+          reason: "催化：路透报道美国商务部拟放宽部分对华半导体设备出口限制；费半指数 +2.1%，板块集体异动（来源：路透快讯 14:32）。",
+          read: "价格、资金、期权三重共振属于较强组合信号。买方主导（P/C 0.72 偏低）且集中在短期 $130-135 Call，短期资金情绪偏多；但现价已逼近 $135 Call Wall，该行权价历史上有压制倾向。",
+          risk: "出口政策尚未正式落地，存在反复风险；连涨 4 日后短线情绪偏热，若尾盘缩量需警惕冲高回落。",
+          track: "观察方向：$135 Call Wall 为关键压力参考位，$125 Put Wall 为支撑参考位；明日关注政策后续官宣与量能持续性。（仅提供观察位，不构成买卖建议）",
+          srcs: ["行情接口·实时", "资金流·L2", "OPRA期权链", "路透快讯"]
+        }
+      },
+      {
+        ticker: "TSLA", name: "特斯拉", price: 246.83, chg: 1.42, vol: "8,900万",
+        metric: 'P/C 1.05 · IV 55.8 <span class="sub" style="color:var(--up)">+0.8</span>',
+        tags: ['<span class="tag risk">风险偏高</span>'],
+        sig: "2", sigText: "回踩PutWall企稳+缩量",
+        panel: "opt",
+        opt: { pcr: 1.05, pcrPos: 51, callWall: "$260 · 4.4万手", putWall: "$240 · 4.2万手", maxPain: "$245 (10/17)", gex: "正 GEX（区间震荡）", expire: "10/17 到期" },
+        interp: {
+          fact: "今日 +1.42% 报 $246.83，成交量 8,900 万股，较昨日缩量 22%；P/C Ratio 1.05 处于均衡区间，IV 55.8 基本持平。",
+          reason: "无明确个股消息催化；走势以技术性因素为主——昨日回踩 $240 Put Wall 后企稳反弹（来源：OPRA 期权链、行情接口）。",
+          read: "缩量回踩关键支撑位企稳，短线抛压减弱。$240-260 形成期权墙共振区间，做市商对冲行为倾向于到期周将价格维持在该区间内（Max Pain $245）。量能萎缩意味着主动买盘尚未回归，反弹持续性待确认。",
+          risk: "本周五月度期权到期，若跌破 $240 Put Wall，负反馈可能加速；下周交付数据为潜在波动源。",
+          track: "观察方向：$240 Put Wall 有效性、$260 Call Wall 压力；量能能否重新放大是反弹延续的关键。",
+          srcs: ["行情接口·实时", "OPRA期权链", "指标引擎"]
+        }
+      },
+      {
+        ticker: "AAPL", name: "苹果", price: 228.15, chg: -0.52, vol: "3,560万",
+        metric: 'P/C 0.91 · IV 22.4 <span class="sub" style="color:var(--down)">-0.6</span>',
+        tags: ['<span class="tag outflow">资金流出</span>'],
+        sig: "1", sigText: "缩量回踩MA20",
+        panel: "opt",
+        opt: { pcr: 0.91, pcrPos: 48, callWall: "$235 · 3.2万手", putWall: "$220 · 2.8万手", maxPain: "$230 (10/17)", gex: "正 GEX（波动偏低）", expire: "10/17 到期" },
+        interp: {
+          fact: "今日 -0.52% 报 $228.15，缩量回踩 20 日均线（$227.9）后尾盘收复；RSI14 回升至 42，脱离超卖区。",
+          reason: "无个股突发消息；属于连日回调后的技术性修整（来源：行情接口、指标引擎）。",
+          read: "量价结构改善：回调过程中量能持续萎缩，说明主动抛压有限。但反弹未获资金配合（主力资金小幅净流出 $3,200 万），趋势反转证据不足。",
+          risk: "若放量跌破 20 日均线，可能加速回补 $220 缺口；正 GEX 环境下预计单边大跌概率较低。",
+          track: "观察方向：20 日均线得失、$220 Put Wall 支撑；等待放量确认信号。",
+          srcs: ["行情接口·实时", "资金流·L2", "OPRA期权链"]
+        }
+      },
+      {
+        ticker: "MSTR", name: "微策略", price: 342.70, chg: 6.84, vol: "1,870万",
+        metric: 'P/C 0.58 · IV 88.6 <span class="sub" style="color:var(--up)">+12.0</span>',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag risk">财报博弈</span>'],
+        sig: "3", sigText: "BTC反弹+财报前Call异动+IV骤升",
+        panel: "opt",
+        opt: { pcr: 0.58, pcrPos: 37, callWall: "$350 · 2.6万手", putWall: "$300 · 1.9万手", maxPain: "$320 (10/17)", gex: "负 GEX（放大波动）", expire: "10/17 到期" },
+        interp: {
+          fact: "今日 +6.84% 报 $342.70，成交量放大至 1,870 万股；$350 Call（下周到期）出现 $220 万扫单，IV 一周抬升 12 个波动率点至 88.6。",
+          reason: "催化：BTC 单日反弹 +4.2% 重返 $67,000；叠加下周二盘后财报，事件博弈资金提前入场（来源：Coinbase 行情、公司财报日历）。",
+          read: "财报前 IV 骤升 + Call 偏买（P/C 0.58）显示市场押注财报后向上波动。注意：财报前大额期权异动可能为投机或对冲行为，方向不代表确定性预期。负 GEX 环境下，一旦价格启动，做市商对冲将放大波动幅度。",
+          risk: "IV 已处近 3 个月高位，若财报后波动不及定价，期权买方将面临 IV 回落损失；负 GEX 双向放大，下跌同样剧烈。",
+          track: "观察方向：$350 Call Wall、$300 Put Wall 构成的财报博弈区间；BTC 联动仍是核心变量。",
+          srcs: ["行情接口·实时", "OPRA期权链", "Coinbase行情"]
+        }
+      },
+      {
+        ticker: "PLTR", name: "Palantir", price: 168.42, chg: -1.87, vol: "2,430万",
+        metric: 'P/C 1.18 · IV 61.3 <span class="sub" style="color:var(--up)">+2.2</span>',
+        tags: ['<span class="tag outflow">资金流出</span>', '<span class="tag risk">风险偏高</span>'],
+        sig: "2", sigText: "MACD顶背离+主力流出",
+        panel: "opt",
+        opt: { pcr: 1.18, pcrPos: 54, callWall: "$175 · 2.1万手", putWall: "$160 · 1.7万手", maxPain: "$165 (10/17)", gex: "正 GEX（区间收敛）", expire: "10/17 到期" },
+        interp: {
+          fact: "今日 -1.87% 报 $168.42，主力资金净流出 $1.4 亿；日线 MACD 出现顶背离（价格新高、动能未新高）。",
+          reason: "无突发消息；属于高位震荡中的技术性走弱（来源：行情接口、指标引擎）。",
+          read: "P/C 1.18 偏防御，Put 端增仓明显；价格尚在 $160-175 期权墙区间内，正 GEX 倾向压制波动。技术面与期权面的谨慎信号同向，但均未到极端。",
+          risk: "若跌破 $160 Put Wall 且放量，区间震荡结构破坏；高估值标的对利率敏感。",
+          track: "观察方向：$160 Put Wall 与前平台 $158 双支撑重叠位，为关键观察位。",
+          srcs: ["行情接口·实时", "OPRA期权链", "指标引擎"]
+        }
+      }
+    ],
+    alerts: [
+      { icon: "resonance", t: "NVDA · 三级共振预警", d: "价格 +3.2% · 主力资金净流入 $2.8 亿 · Call 期权 sweep $480 万，Vol/OI 5.6×，三重异动共振", meta: ['<span class="lvl3">● 三级</span>', "2 分钟前", "来源: 行情/资金流/期权链"] },
+      { icon: "opt", t: "TSLA · 期权墙逼近", d: "现价 $246.8 接近 Put Wall $240（未平仓 4.2 万手），本周五到期；历史上该行权价对价格有支撑倾向", meta: ["期权数据", "18 分钟前", "来源: OPRA 期权链"] },
+      { icon: "news", t: "半导体板块 · 消息催化", d: "美商务部拟放宽部分设备出口限制，SOX 成分股集体异动，NVDA/AMD/AVGO 平均涨幅 2.4%", meta: ["板块轮动", "1 小时前", "来源: 路透快讯"] },
+      { icon: "tech", t: "AAPL · 二级技术信号", d: "缩量回踩 20 日均线企稳，RSI 从超卖区回升至 42，量价配合度转好。未达推送阈值，仅简报收录", meta: ["技术信号", "2 小时前", "来源: 指标引擎 MA20/RSI14"] },
+      { icon: "opt", t: "SPY · GEX 翻转提示", d: "标普 500 正 Gamma 敞口转为负值区间，做市商对冲行为可能放大波动，谨慎对待尾盘异动", meta: ["期权结构", "3 小时前", "来源: OPRA 期权链自研计算"] },
+      { icon: "resonance", t: "MSTR · 财报前期权异动", d: "下周二财报。今日 Call $350 下周到期扫单 $220 万，IV 一周抬升 12 个波动率点", meta: ['<span class="lvl3">● 三级</span>', "4 小时前", "来源: 期权异动流"] }
+    ],
+    report: {
+      title: "每日 AI 复盘报告 · 美股 · 2026-10-07（周三）",
+      sub: "由复盘 Agent 于 16:30（美东）自动生成 · 已归档至投研日志 · 全部数据可溯源",
+      secs: [
+        { h: "大盘全景快照", items: [
+          "标普 500 收涨 +0.62%，纳指 +0.94%；涨跌家数比 312 : 188，赚钱效应中性偏暖",
+          "VIX 收于 16.8（-1.2），市场情绪平稳；正 GEX 环境延续，指数日内波动被压制",
+          "10Y 美债收益率 4.21%（-3bp），成长风格相对占优；道指 -0.18% 与纳指分化，市场内部高低切换"
+        ]},
+        { h: "自选标的当日总结", table: [
+          ["NVDA 英伟达", "+3.2%", "出口政策缓和 + Call 扫单 + 放量突破前高", "三级 共振"],
+          ["TSLA 特斯拉", "+1.4%", "回踩 Put Wall $240 企稳，量能萎缩", "二级 关注"],
+          ["AAPL 苹果", "-0.5%", "缩量回踩 20 日线，RSI 脱离超卖", "一级 弱信号"],
+          ["MSTR 微策", "+6.8%", "随 BTC 反弹 + 财报前 Call 异动", "三级 共振"]
+        ]},
+        { h: "热点板块复盘", items: [
+          "主线：半导体（政策缓和催化），费半指数 +2.1%，资金连续 3 日净流入",
+          "轮动节奏：高位算力股 → 低位设备/材料股扩散，轮动健康度中等",
+          "龙头标的：NVDA、AMD、AMAT；资金偏好：大盘成长 + 高 Beta"
+        ]},
+        { h: "风险与机会 · 明日跟踪", items: [
+          "<b style='color:var(--warn)'>期权日历</b>：本周五 NVDA/TSLA 月度期权到期，关注 $130 Call Wall / $240 Put Wall 磁吸效应",
+          "<b style='color:var(--warn)'>财报日历</b>：MSTR 下周二盘后，当前 IV 处于近 3 个月高位，事件博弈拥挤",
+          "潜在催化：周四美国 9 月 CPI 数据，若低于预期或强化成长风格",
+          "风险点：连涨 4 日后短线情绪偏热，注意冲高回落风险"
+        ]},
+        { h: "持仓复盘（已开启）", items: [
+          "当日组合 -0.3% vs 纳指 +0.94%，主要拖累：AAPL 仓位过重（38%）",
+          "NVDA 已达此前提示的跟踪位，浮盈扩大；注意移动止盈纪律",
+          "操作复盘建议：AAPL 仓位集中度偏高，可评估再平衡（仅为组合结构分析，非买卖建议）"
+        ]}
+      ]
+    }
+  },
+
+  /* ==================== 港股 ==================== */
+  hk: {
+    name: "港股", cur: "HK$", idxName: "港股",
+    indexes: [
+      {
+        ticker: "HSI", name: "恒生指数", price: 24368.25, chg: 1.28, badge: "放量上攻",
+        note: "成交 1,540 亿 · 外资回流迹象",
+        meta: [["涨跌家数", "1,062 : 704"], ["大市成交", "HK$1,540 亿"], ["南向资金", "净流入 HK$86 亿"], ["市场情绪", "68 · 偏暖"]],
+        interp: {
+          fact: "恒指今日 +1.28% 报 24368.25，创近两周最大单日涨幅；大市成交 1,540 亿港元（较 5 日均量放大 32%）；南向资金净流入 86 亿港元，为近一个月单日最高。",
+          reason: "催化：隔夜美联储会议纪要偏鸽、美元指数走弱至 101.2，外资风险偏好回升；叠加腾讯等权重科技股将于下周发布财报前的布局资金入场（来源：港交所行情、彭博快讯）。",
+          read: "量价齐升 + 南向同步流入，属于较为健康的上攻结构。科网股权重带动指数，但上涨家数 1,062 : 704 显示并非全面普涨，行情仍以权重股为主线。恒指已站上月线，短期趋势由弱转强。",
+          risk: "美元若反弹将直接压制外资回流逻辑；下周腾讯/美团财报密集披露，权重股波动将放大指数波动；24,500 上方存在前期套牢盘压力区。",
+          track: "观察方向：24,500 前高压力带、24,000 整数关口支撑；南向资金能否连续净流入是行情持续性的关键验证。",
+          srcs: ["港交所行情", "南向资金·实时", "彭博快讯"]
+        }
+      },
+      {
+        ticker: "HSTECH", name: "恒生科技", price: 5482.31, chg: 2.35, badge: "主线领涨",
+        note: "科网集体异动 · 财报前布局",
+        meta: [["成分股上涨", "27 / 30"], ["板块成交", "HK$682 亿"], ["南向资金", "净流入 HK$86 亿"], ["市场情绪", "68 · 偏暖"]],
+        interp: {
+          fact: "恒生科技指数今日 +2.35% 报 5482.31，30 只成分股中 27 只上涨；板块成交 682 亿港元，占大市成交 44%。",
+          reason: "催化：美元走弱 + 财报季前布局资金入场；小米 SU7 周度交付数据超预期带动汽车链，中芯国际受益半导体出口缓和预期（来源：公司公告、彭博快讯）。",
+          read: "科网板块呈现「财报前抢跑」特征：资金在巨头财报披露前集中布局，历史上该行为对财报后走势无稳定预示作用。板块相对恒指超额收益 +1.1 个百分点，短期动量强。",
+          risk: "财报博弈拥挤：若巨头业绩或指引不及预期，板块回撤弹性大；科技板块对美债利率敏感，若美债收益率反弹将压制估值。",
+          track: "观察方向：5,600 前高压力、5,300 缺口支撑；下周腾讯（周三）、美团（周四）财报为板块方向性事件。",
+          srcs: ["港交所行情", "公司财报日历", "彭博快讯"]
+        }
+      },
+      {
+        ticker: "HSCEI", name: "国企指数", price: 8621.40, chg: 1.10, badge: "稳步跟涨",
+        note: "金融地产落后补涨",
+        meta: [["涨跌家数", "1,062 : 704"], ["大市成交", "HK$1,540 亿"], ["南向资金", "净流入 HK$86 亿"], ["市场情绪", "68 · 偏暖"]],
+        interp: {
+          fact: "国企指数今日 +1.10% 报 8621.40，涨幅落后恒生科技 1.25 个百分点；银行、内险小幅跟涨，内房分化明显。",
+          reason: "无独立催化，跟随大市 risk-on；金融板块涨幅（+0.4%）明显落后于科技（+2.3%）（来源：港交所行情）。",
+          read: "典型的「科技进攻、金融垫后」结构。历史经验：牛市初期该结构常见且健康；若行情进入下半场，低估值金融存在补涨需求。",
+          risk: "内房板块政策预期反复，个体分化极大；金融板块若持续跑输超过两周，需警惕市场对行情持续性的怀疑。",
+          track: "观察方向：8,700 前期平台压力；金融/科技相对强弱比值为板块轮动观察指标。",
+          srcs: ["港交所行情", "板块资金流"]
+        }
+      }
+    ],
+    marketBar: [
+      { k: "涨跌家数", v: "1,062 : 704", cls: "up" },
+      { k: "大市成交", v: "HK$1,540 亿", cls: "up" },
+      { k: "南向资金", v: "净流入 HK$86 亿", cls: "up" },
+      { k: "市场情绪评分", v: "68 / 100 偏暖", cls: "up" }
+    ],
+    sectors: [
+      { n: "科网", c: "+2.3%" }, { n: "汽车", c: "+1.8%" }, { n: "半导体", c: "+1.6%" },
+      { n: "地产", c: "+0.9%" }, { n: "银行", c: "+0.4%" }, { n: "医药", c: "-0.6%" }
+    ],
+    metricTh: "P/C · IV / 主力资金",
+    stocks: [
+      {
+        ticker: "0700", name: "腾讯控股", price: 468.80, chg: 1.85, vol: "1,820万股",
+        metric: 'P/C 0.84 · IV 31.2 <span class="sub" style="color:var(--up)">+2.4</span>',
+        tags: ['<span class="tag catalyst">财报临近</span>', '<span class="tag hot">资金流入</span>'],
+        sig: "2", sigText: "放量站上MA60+南向加仓",
+        panel: "opt",
+        opt: { pcr: 0.84, pcrPos: 46, callWall: "HK$480 · 1.2万手", putWall: "HK$450 · 0.9万手", maxPain: "HK$460 (10/28)", gex: "正 GEX（波动温和）", expire: "10/28 到期" },
+        interp: {
+          fact: "今日 +1.85% 报 HK$468.80，成交 1,820 万股（放量 40%）；南向资金净买入 18.6 亿港元，为今日南向第一大买入标的；期权 IV 31.2，一周抬升 2.4 个波动率点。",
+          reason: "催化：下周三（10/15）发布 Q3 财报，财报前布局资金入场；叠加美元走弱、科网板块整体 risk-on（来源：公司财报日历、南向资金·实时）。",
+          read: "量价与南向资金同向，属于财报前的多头布局行为。期权市场 Call 偏买但程度温和（P/C 0.84），市场对财报方向的押注并不极端。股价放量站上 60 日均线，中期趋势修复。",
+          risk: "财报博弈拥挤度中等：若游戏流水或广告增速不及预期，财报后回撤风险存在；财报前 IV 仍可能继续抬升，注意事件波动放大。",
+          track: "观察方向：HK$480 Call Wall 为短期压力参考，HK$450 Put Wall 为支撑参考；财报前南向资金动向是情绪风向标。（期权仅覆盖高流动性标的）",
+          srcs: ["港交所行情", "南向资金·实时", "港股期权链"]
+        }
+      },
+      {
+        ticker: "9988", name: "阿里巴巴", price: 118.60, chg: 2.64, vol: "4,360万股",
+        metric: 'P/C 0.78 · IV 34.6 <span class="sub" style="color:var(--up)">+1.8</span>',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag catalyst">利好催化</span>'],
+        sig: "3", sigText: "放量突破+南向+Call增仓",
+        panel: "opt",
+        opt: { pcr: 0.78, pcrPos: 44, callWall: "HK$125 · 0.8万手", putWall: "HK$110 · 0.6万手", maxPain: "HK$115 (10/28)", gex: "正 GEX（区间上移）", expire: "10/28 到期" },
+        interp: {
+          fact: "今日 +2.64% 报 HK$118.60，成交 4,360 万股（放量 55%）；南向净买入 12.3 亿港元；Call 端未平仓单日增加 8%，P/C 降至 0.78。",
+          reason: "催化：云业务季度收入增速预期上调（多家外资行财报前上调目标价）；美元走弱放大中概弹性（来源：外资行研报摘要、南向资金·实时）。",
+          read: "正股放量 + 南向流入 + Call 增仓三重同向，短期资金情绪明确偏多，且已放量突破近两个月震荡区间上沿。港股期权流动性相对美股偏低，期权信号权重应适当降低，以正股量价与资金为主。",
+          risk: "突破初期回踩确认需求存在；外资行目标价集中上调后，若财报不及预期则预期反转速度快。",
+          track: "观察方向：HK$125 Call Wall 压力、突破平台 HK$115 回踩确认位。",
+          srcs: ["港交所行情", "南向资金·实时", "港股期权链", "外资行研报摘要"]
+        }
+      },
+      {
+        ticker: "3690", name: "美团", price: 142.30, chg: -1.12, vol: "1,140万股",
+        metric: '主力净流出 HK$3.2亿',
+        tags: ['<span class="tag outflow">资金流出</span>'],
+        sig: "1", sigText: "缩量回调至MA20",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "HK$-3.2 亿", "down"], ["超大单净额", "HK$-2.1 亿", "down"], ["南向持股变化(5日)", "+0.6%", "up"], ["机构席位异动", "无明显信号", ""]], note: "财报（10/16）前资金博弈加剧，主力短线资金流出但南向中长线持仓逆势微增，长短资金分歧。" },
+        interp: {
+          fact: "今日 -1.12% 报 HK$142.30，缩量回调至 20 日均线；主力资金净流出 3.2 亿港元，但南向持股 5 日变化 +0.6%，逆势微增。",
+          reason: "无突发消息；财报（10/16）临近，短线资金了结前期涨幅，与中长线资金形成分歧（来源：港交所行情、南向资金·实时）。",
+          read: "缩量回调 + 长短线资金分歧，属于财报前的正常仓位调整而非趋势逆转信号。20 日均线若守住，回调仍属健康；美团期权流动性不足，暂不纳入期权信号分析。",
+          risk: "外卖单量增速与利润率的指引分歧是财报核心变量；跌破 20 日均线且放量则回调加深。",
+          track: "观察方向：20 日均线（HK$141）得失、HK$135 前平台支撑。",
+          srcs: ["港交所行情", "南向资金·实时", "指标引擎"]
+        }
+      },
+      {
+        ticker: "1810", name: "小米集团", price: 28.45, chg: 3.36, vol: "6,720万股",
+        metric: '主力净流入 HK$8.6亿',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag catalyst">利好催化</span>'],
+        sig: "3", sigText: "交付超预期+放量+突破平台",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "HK$8.6 亿", "up"], ["超大单净额", "HK$5.4 亿", "up"], ["南向持股变化(5日)", "+1.2%", "up"], ["卖空比例", "4.2%（偏低）", ""]], note: "主力、超大单、南向三线净流入，且卖空比例处于低位，空头压制小，属于多头共识度较高的异动。" },
+        interp: {
+          fact: "今日 +3.36% 报 HK$28.45，成交 6,720 万股（放量 65%）；主力净流入 8.6 亿港元，南向 5 日持股变化 +1.2%，卖空比例 4.2% 处于近一个月低位。",
+          reason: "催化：SU7 周度交付数据 4,800 台创单周新高，Q4 交付指引上调预期升温（来源：公司公告、乘联会数据）。",
+          read: "正股放量突破、资金三线流入、卖空低位——多头共识度较高的异动结构，短期动量强。汽车业务逻辑正处于「数据验证期」，周度交付数据成为股价的核心催化节奏。",
+          risk: "估值已部分反映交付预期，若后续周度数据边际放缓，波动放大；手机业务毛利仍待 Q3 财报验证。",
+          track: "观察方向：HK$29 整数关口、突破平台 HK$27.5 回踩位；下周交付数据为持续性验证节点。",
+          srcs: ["港交所行情", "主力资金·实时", "公司公告"]
+        }
+      },
+      {
+        ticker: "0981", name: "中芯国际", price: 21.86, chg: 4.82, vol: "3,140万股",
+        metric: '主力净流入 HK$5.1亿',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag catalyst">政策预期</span>'],
+        sig: "3", sigText: "半导体链共振+放量+主力流入",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "HK$5.1 亿", "up"], ["超大单净额", "HK$3.3 亿", "up"], ["南向持股变化(5日)", "+0.8%", "up"], ["AH 溢价", "H股较A股折价 62%", ""]], note: "与 A 股半导体板块形成跨市场共振：A 股设备/材料端同日集体异动，产业逻辑而非个股消息驱动。" },
+        interp: {
+          fact: "今日 +4.82% 报 HK$21.86，成交 3,140 万股（放量 90%）；主力净流入 5.1 亿港元；A 股半导体设备板块同日平均上涨 2.6%，跨市场共振明显。",
+          reason: "催化：美商务部拟放宽部分半导体设备出口限制的报道，缓和国产替代紧迫性预期中的「外部限制」变量，先进制程扩产预期升温（来源：路透快讯、A 股板块行情）。",
+          read: "A+H 半导体链跨市场共振属于产业级催化，持续性通常强于个股消息。中芯作为产能核心环节，直接受益扩产逻辑。注意 H 股较 A 股大幅折价，两地资金对同一逻辑的定价弹性不同。",
+          risk: "政策报道尚未落地，存在反复；晶圆代工价格与稼动率数据仍待季报验证。",
+          track: "观察方向：HK$23 前高压力、HK$20.5 平台支撑；A 股设备板块（北方华创等）走势为联动观察锚。",
+          srcs: ["港交所行情", "主力资金·实时", "路透快讯"]
+        }
+      }
+    ],
+    alerts: [
+      { icon: "resonance", t: "0981 中芯国际 · 三级共振预警", d: "+4.8% · 主力净流入 5.1 亿 · A 股半导体设备板块同步异动 +2.6%，跨市场产业共振", meta: ['<span class="lvl3">● 三级</span>', "12 分钟前", "来源: 港交所/主力资金/A股板块"] },
+      { icon: "resonance", t: "1810 小米 · 三级共振预警", d: "+3.4% · 主力+南向+超大单三线净流入，SU7 周交付 4,800 台创新高，放量突破平台", meta: ['<span class="lvl3">● 三级</span>', "35 分钟前", "来源: 港交所/公司公告"] },
+      { icon: "opt", t: "0700 腾讯 · 财报前期权异动", d: "下周三财报，Call 未平仓单日 +8%，IV 抬升至 31.2；HK$480 Call Wall 构成短期压力参考", meta: ["期权数据", "1 小时前", "来源: 港股期权链（高流动性标的）"] },
+      { icon: "news", t: "南向资金 · 尾盘加速流入", d: "南向全天净流入 86 亿港元（近一月最高），尾盘 30 分钟贡献 28 亿，腾讯/阿里/中芯为主要买入标的", meta: ["资金异动", "2 小时前", "来源: 南向资金·实时"] },
+      { icon: "tech", t: "3690 美团 · 一级技术信号", d: "缩量回踩 20 日均线，RSI 48 中性。未达推送阈值，仅看板收录", meta: ["技术信号", "3 小时前", "来源: 指标引擎 MA20/RSI14"] }
+    ],
+    report: {
+      title: "每日 AI 复盘报告 · 港股 · 2026-10-07（周三）",
+      sub: "由复盘 Agent 于 16:30（港股收盘后）自动生成 · 已归档至投研日志 · 全部数据可溯源",
+      secs: [
+        { h: "大盘全景快照", items: [
+          "恒指 +1.28% 报 24,368，创近两周最大单日涨幅；恒生科技 +2.35% 领涨主要指数",
+          "大市成交 1,540 亿港元（放量 32%）；涨跌家数 1,062 : 704，上涨占比 60%",
+          "南向资金净流入 86 亿港元（近一月单日最高）；美元指数走弱至 101.2，外资风险偏好回升"
+        ]},
+        { h: "自选标的当日总结", table: [
+          ["0981 中芯国际", "+4.8%", "A+H 半导体跨市场共振，放量 90%", "三级 共振"],
+          ["1810 小米集团", "+3.4%", "SU7 周交付创新高，三线资金净流入", "三级 共振"],
+          ["9988 阿里巴巴", "+2.6%", "外资行上调目标价，放量突破震荡区间", "三级 共振"],
+          ["0700 腾讯控股", "+1.9%", "财报前布局，南向第一大买入", "二级 关注"],
+          ["3690 美团", "-1.1%", "缩量回调 20 日线，长短资金分歧", "一级 弱信号"]
+        ]},
+        { h: "热点板块复盘", items: [
+          "主线：科网（财报季前布局 + 美元走弱双催化），板块成交占大市 44%",
+          "次主线：汽车（小米交付数据链）、半导体（A+H 跨市场共振）",
+          "落后板块：银行 +0.4%、医药 -0.6%，资金明显弃防御取进攻"
+        ]},
+        { h: "风险与机会 · 明日跟踪", items: [
+          "<b style='color:var(--warn)'>财报日历</b>：腾讯 10/15（周三）、美团 10/16（周四）盘后，巨头财报是板块方向性事件",
+          "<b style='color:var(--warn)'>期权提示</b>：腾讯 IV 一周 +2.4pts，财报事件定价已开始，HK$480 Call Wall / HK$450 Put Wall 为区间参考",
+          "潜在催化：隔夜美国 9 月 CPI（周四）将影响美元走向，直接关联外资回流持续性",
+          "风险点：24,500 上方前期套牢盘压力区；南向净流入若中断，行情验证信号转弱"
+        ]},
+        { h: "持仓复盘（已开启）", items: [
+          "当日组合 +1.8% 跑赢恒指（+1.28%），主要贡献：中芯、小米",
+          "腾讯财报前仓位已达 32%，事件集中度偏高，注意单一财报事件风险敞口",
+          "操作复盘建议：美团回调至 20 日线，长短资金分歧，可关注财报前仓位纪律（仅为结构分析，非买卖建议）"
+        ]}
+      ]
+    }
+  },
+
+  /* ==================== A股 ==================== */
+  a: {
+    name: "A股", cur: "¥", idxName: "A股",
+    indexes: [
+      {
+        ticker: "000001", name: "上证指数", price: 3458.26, chg: 0.85, badge: "放量上攻",
+        note: "成交 1.82 万亿 · 北向净流入",
+        meta: [["涨跌家数", "2,865 : 2,130"], ["两市成交", "¥1.82 万亿"], ["北向资金", "净流入 ¥58 亿"], ["涨跌停比", "78 : 6"]],
+        interp: {
+          fact: "上证指数今日 +0.85% 报 3458.26，站稳 3450 平台；两市成交 1.82 万亿元（较昨日放量 1,400 亿）；上涨家数 2,865 : 2,130，涨停 78 家、跌停 6 家，赚钱效应明显回暖。",
+          reason: "催化：算力硬件（光模块/PCB）业绩预告密集超预期，带动科技主线全面走强；叠加央行公开市场净投放 2,000 亿元，资金面边际宽松（来源：沪深交易所行情、央行公开数据）。",
+          read: "放量突破 3450 平台 + 北向同步净流入，量价资金三要素齐备，属于近期质量最高的一次上攻。涨停家数 78 家且以业绩驱动为主（非纯题材），市场风险偏好实质性回升。上方 3,500 整数关口为下一个心理压力位。",
+          risk: "3,450-3,500 区域存在 9 月套牢盘密集区，首次触碰大概率有反复；两市成交若缩回 1.5 万亿以下，上攻动能衰减。",
+          track: "观察方向：3,500 整数关口、3,420 平台上沿回踩确认位；量能能否维持 1.7 万亿以上是持续性关键。",
+          srcs: ["沪深交易所行情", "北向资金·实时", "央行公开数据"]
+        }
+      },
+      {
+        ticker: "399001", name: "深证成指", price: 11234.50, chg: 1.12, badge: "科技主线",
+        note: "光模块/PCB 领涨 · 弹性更大",
+        meta: [["涨跌家数", "2,865 : 2,130"], ["两市成交", "¥1.82 万亿"], ["北向资金", "净流入 ¥58 亿"], ["涨跌停比", "78 : 6"]],
+        interp: {
+          fact: "深证成指今日 +1.12% 报 11234.50，跑赢上证 0.27 个百分点；深市光模块、PCB、算力租赁板块平均涨幅超 4%。",
+          reason: "催化：中际旭创等光模块龙头三季报预告超预期，业绩验证逻辑从「预期驱动」切换为「业绩驱动」；AI 算力资本开支上修传导至硬件端（来源：公司业绩预告、沪深交易所行情）。",
+          read: "成长风格显著占优，且本轮上涨由业绩预告驱动——相比纯题材行情，业绩驱动的持续性历史胜率更高。深市量能占比升至 62%，资金聚焦科技主线的特征明显。",
+          risk: "科技赛道交易拥挤度快速上升（换手率分位数已达 88%），短线波动加大；若龙头业绩落地后「利好兑现」，注意高位分歧。",
+          track: "观察方向：11,300 前高压力、11,000 整数支撑；光模块板块成交占比是否过热（>8% 为警戒线）。",
+          srcs: ["沪深交易所行情", "公司业绩预告", "板块资金流"]
+        }
+      },
+      {
+        ticker: "399006", name: "创业板指", price: 2389.74, chg: 1.64, badge: "弹性最大",
+        note: "宁德时代领涨 · 新能源联动",
+        meta: [["涨跌家数", "2,865 : 2,130"], ["两市成交", "¥1.82 万亿"], ["北向资金", "净流入 ¥58 亿"], ["涨跌停比", "78 : 6"]],
+        interp: {
+          fact: "创业板指今日 +1.64% 报 2389.74，为三大指数中最强；权重股宁德时代 +2.18%，寒武纪 +6.85% 贡献主要弹性。",
+          reason: "催化：算力与新能源双主线共振——光模块业绩超预期带动算力链，碳酸锂期货反弹带动新能源情绪修复（来源：公司公告、广期所行情）。",
+          read: "创业板呈现「算力 + 新能源」双引擎结构，与单一主线行情相比，指数上攻的持续性更好。但需注意寒武纪等高 Beta 权重股对指数的扰动，个股风险会放大指数波动。",
+          risk: "寒武纪等权重股波动率极高（年化 75%+），指数短线节奏被个股绑架；2,400 整数关口首次触碰或有震荡。",
+          track: "观察方向：2,400 整数关口、2,350 缺口支撑；权重股（宁德/寒武纪）与指数的联动节奏。",
+          srcs: ["沪深交易所行情", "广期所行情", "板块资金流"]
+        }
+      }
+    ],
+    marketBar: [
+      { k: "涨跌家数", v: "2,865 : 2,130", cls: "up" },
+      { k: "两市成交", v: "¥1.82 万亿", cls: "up" },
+      { k: "北向资金", v: "净流入 ¥58 亿", cls: "up" },
+      { k: "涨跌停", v: "78 : 6", cls: "up" },
+      { k: "赚钱效应", v: "偏暖 · 涨停溢价 3.2%", cls: "up" }
+    ],
+    sectors: [
+      { n: "光模块", c: "+5.8%" }, { n: "PCB", c: "+4.2%" }, { n: "算力租赁", c: "+3.6%" },
+      { n: "券商", c: "+1.5%" }, { n: "白酒", c: "-0.8%" }, { n: "银行", c: "-0.3%" }
+    ],
+    metricTh: "主力资金 · 北向",
+    stocks: [
+      {
+        ticker: "300308", name: "中际旭创", price: 158.62, chg: 5.42, vol: "2,840万股",
+        metric: '主力 +5.6亿 · 北向 +0.9%',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag catalyst">业绩预告</span>'],
+        sig: "3", sigText: "业绩超预期+放量+主力流入",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "¥5.6 亿", "up"], ["超大单净额", "¥3.8 亿", "up"], ["北向持股变化(5日)", "+0.9%", "up"], ["龙虎榜", "机构净买入 ¥1.2 亿", "up"]], note: "业绩预告为最硬催化类型：主力、超大单、北向、机构席位四线同向，属于确定性较高的资金共振结构。" },
+        interp: {
+          fact: "今日 +5.42% 报 ¥158.62，成交 2,840 万股（放量 120%）；主力净流入 5.6 亿元；龙虎榜显示机构席位净买入 1.2 亿元；北向 5 日持股变化 +0.9%。",
+          reason: "催化：昨晚发布三季报预告，Q3 净利润环比 +35% 超市场一致预期；海外 AI 资本开支上修预期同步强化（来源：公司业绩预告、龙虎榜数据）。",
+          read: "业绩预告超预期 + 四线资金共振 + 放量突破，是 A 股最强的异动组合之一。1.6 亿美金级别的主力净流入对该市值属于显著增量。光模块板块整体联动（+5.8%），产业逻辑而非个股逻辑，持续性相对更有支撑。",
+          risk: "高开后涨幅已部分兑现预期，盘中波动加大；若后续海外云厂商资本开支指引不及预期，逻辑逆转速度快。",
+          track: "观察方向：¥165 前高压力、¥150 缺口支撑；板块成交占比与拥挤度为短线风险指标。",
+          srcs: ["沪深交易所行情", "龙虎榜数据", "公司业绩预告"]
+        }
+      },
+      {
+        ticker: "300750", name: "宁德时代", price: 292.36, chg: 2.18, vol: "1,960万股",
+        metric: '主力 +3.2亿 · 北向 +0.5%',
+        tags: ['<span class="tag hot">资金流入</span>'],
+        sig: "2", sigText: "缩量回调后放量启动",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "¥3.2 亿", "up"], ["超大单净额", "¥2.0 亿", "up"], ["北向持股变化(5日)", "+0.5%", "up"], ["龙虎榜", "未上榜", ""]], note: "碳酸锂期货主力合约 +3.8%，产业链情绪修复传导至中游电池龙头，产业联动型流入。" },
+        interp: {
+          fact: "今日 +2.18% 报 ¥292.36，成交 1,960 万股；主力净流入 3.2 亿元；碳酸锂期货主力合约同日 +3.8%。",
+          reason: "催化：碳酸锂期货反弹带动新能源产业链情绪修复；储能业务排产环比改善的产业信息流传（来源：广期所行情、产业调研信息——未经官方证实）。",
+          read: "量能温和放大、资金流入但幅度克制，属于产业链联动型的修复行情而非强催化。290 平台经过两周缩量整理后放量启动，技术结构健康。注意「排产改善」信息未经官方证实，已在事实与传闻间做区分标注。",
+          risk: "碳酸锂价格反弹若为供给扰动驱动（而非需求驱动），持续性存疑；储能排产信息未经证实，传闻落地存在不确定性。",
+          track: "观察方向：¥300 整数关口、¥285 平台上沿支撑；碳酸锂期货走势为产业链情绪锚。",
+          srcs: ["沪深交易所行情", "广期所行情", "主力资金·实时"]
+        }
+      },
+      {
+        ticker: "688256", name: "寒武纪", price: 502.80, chg: 6.85, vol: "1,420万股",
+        metric: '主力 +4.8亿 · 换手 8.2%',
+        tags: ['<span class="tag hot">异动拉升</span>', '<span class="tag risk">高波动</span>'],
+        sig: "3", sigText: "算力主线+放量+高换手",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "¥4.8 亿", "up"], ["超大单净额", "¥2.6 亿", "up"], ["换手率", "8.2%（分位 92%）", ""], ["龙虎榜", "游资席位对倒活跃", "down"]], note: "高换手 + 游资席位活跃 + 主力流入并存：动量强但筹码结构不稳定，波动率年化 75%+，仓位管理重要性高于方向判断。" },
+        interp: {
+          fact: "今日 +6.85% 报 ¥502.80，成交 1,420 万股，换手率 8.2%（近一年分位 92%）；主力净流入 4.8 亿元；龙虎榜显示知名游资席位对倒活跃。",
+          reason: "催化：算力租赁板块全线走强（+3.6%）+ 市场对国产算力芯片订单的乐观预期发酵（来源：板块行情；订单预期未经公司证实）。",
+          read: "放量高换手 + 游资主导，属于典型的高 Beta 动量行情：短期弹性极大，但筹码结构不稳定，涨跌都会被波动率放大。与中际旭创的「业绩+机构」结构不同，本标的为「预期+游资」结构，两类异动的持续性评估逻辑应区分对待。",
+          risk: "换手率处于极端分位，历史上该状态后的 5 日波动率中位数显著抬升；订单预期未经证实，传闻证伪风险存在；科创板 20% 涨跌幅制度下尾部风险更大。",
+          track: "观察方向：¥520 历史高点、¥470 分时缺口支撑；板块（算力租赁）整体量能为持续性验证锚。",
+          srcs: ["沪深交易所行情", "龙虎榜数据", "主力资金·实时"]
+        }
+      },
+      {
+        ticker: "600519", name: "贵州茅台", price: 1682.50, chg: -0.62, vol: "312万股",
+        metric: '主力 -2.1亿 · 北向 -0.3%',
+        tags: ['<span class="tag outflow">资金流出</span>'],
+        sig: "1", sigText: "缩量阴跌·趋势偏弱",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "¥-2.1 亿", "down"], ["超大单净额", "¥-1.3 亿", "down"], ["北向持股变化(5日)", "-0.3%", "down"], ["龙虎榜", "未上榜", ""]], note: "资金持续流出但幅度温和，属于「失血式阴跌」而非恐慌抛售；在科技主线吸金效应下的存量博弈格局。" },
+        interp: {
+          fact: "今日 -0.62% 报 ¥1682.50，缩量阴跌（成交 312 万股，低于均量 20%）；主力净流出 2.1 亿元，北向 5 日持股变化 -0.3%。",
+          reason: "无个股利空；在科技主线强势吸金的存量博弈下，消费白马成为资金来源（来源：沪深交易所行情、主力资金·实时）。",
+          read: "缩量阴跌 + 温和流出，属于存量博弈下的「抽血效应」而非基本面恶化。1,650 平台为年内三次确认的支撑位。若科技主线降温，此类「失血」白马通常是最先获得资金回补的方向。",
+          risk: "白酒行业批价数据持续疲软（飞天散瓶批价 2,410 元，周环比 -0.5%），基本面尚未出现反转信号；跌破 1,650 支撑则技术结构转坏。",
+          track: "观察方向：1,650 年内三重底支撑、1,720 均线压力位；批价数据与北向流向为先行指标。",
+          srcs: ["沪深交易所行情", "主力资金·实时", "批价渠道数据"]
+        }
+      },
+      {
+        ticker: "002594", name: "比亚迪", price: 298.45, chg: 1.26, vol: "890万股",
+        metric: '主力 +1.8亿 · 北向 +0.2%',
+        tags: ['<span class="tag catalyst">销量催化</span>'],
+        sig: "2", sigText: "月销数据+温和放量",
+        panel: "flow",
+        flow: { rows: [["主力净流入", "¥1.8 亿", "up"], ["超大单净额", "¥1.1 亿", "up"], ["北向持股变化(5日)", "+0.2%", "up"], ["龙虎榜", "未上榜", ""]], note: "温和流入结构，与产业链（碳酸锂/宁德）形成同向联动，新能源链条情绪修复的一致性较好。" },
+        interp: {
+          fact: "今日 +1.26% 报 ¥298.45，成交 890 万股（温和放量 15%）；主力净流入 1.8 亿元；临近 ¥300 整数关口。",
+          reason: "催化：10 月上旬销量数据延续强势（新能源乘用车零售同比 +35%），叠加碳酸锂反弹带动产业链情绪（来源：乘联会数据、广期所行情）。",
+          read: "量价温和、资金小幅流入，属于产业链联动中的「稳健型」标的，波动特征与寒武纪的高 Beta 形成鲜明对比。300 整数关口心理压力明显，历史上多次首次触碰后震荡消化。",
+          risk: "海外关税政策的不确定性仍在；Q3 毛利率（待披露）若受价格战影响低于预期，存在回撤风险。",
+          track: "观察方向：¥300 整数关口突破有效性、¥288 缺口支撑；月度销量与毛利率披露为主要节点。",
+          srcs: ["沪深交易所行情", "乘联会数据", "主力资金·实时"]
+        }
+      }
+    ],
+    alerts: [
+      { icon: "resonance", t: "300308 中际旭创 · 三级共振预警", d: "+5.4% · 业绩预告超预期 + 主力净流入 5.6 亿 + 机构席位净买入 1.2 亿，光模块板块整体 +5.8%", meta: ['<span class="lvl3">● 三级</span>', "8 分钟前", "来源: 行情/龙虎榜/业绩预告"] },
+      { icon: "resonance", t: "688256 寒武纪 · 三级共振预警", d: "+6.9% · 换手率 8.2%（92% 分位）· 主力净流入 4.8 亿，算力租赁板块 +3.6% 联动，高波动预警", meta: ['<span class="lvl3">● 三级</span>', "26 分钟前", "来源: 行情/主力资金/板块联动"] },
+      { icon: "news", t: "北向资金 · 尾盘加速流入", d: "北向全天净流入 58 亿元，尾盘 30 分钟流入 19 亿；光模块、券商为主要买入方向", meta: ["资金异动", "1 小时前", "来源: 北向资金·实时"] },
+      { icon: "tech", t: "600519 贵州茅台 · 二级技术信号", d: "缩量阴跌至 1,650 年内三重底支撑附近，若放量跌破技术结构转坏；反向关注科技主线降温后的资金回补", meta: ["技术信号", "2 小时前", "来源: 指标引擎 MA/平台识别"] },
+      { icon: "news", t: "光模块板块 · 拥挤度预警", d: "光模块板块成交占比达 7.8%（警戒线 8%），短线交易拥挤，注意分歧风险", meta: ["板块风控", "3 小时前", "来源: 板块资金流·拥挤度模型"] }
+    ],
+    report: {
+      title: "每日 AI 复盘报告 · A股 · 2026-10-07（周三）",
+      sub: "由复盘 Agent 于 15:30 收盘后自动生成 · 已归档至投研日志 · 全部数据可溯源",
+      secs: [
+        { h: "大盘全景快照", items: [
+          "上证 +0.85% 站稳 3,450 平台，深成指 +1.12%，创业板指 +1.64% 领涨；两市成交 1.82 万亿（放量 1,400 亿）",
+          "涨跌家数 2,865 : 2,130，涨停 78 家 / 跌停 6 家，涨停溢价 3.2%，赚钱效应明显回暖",
+          "北向资金净流入 58 亿元，尾盘加速；行业资金从白酒/银行流出，向光模块/算力/券商集中"
+        ]},
+        { h: "自选标的当日总结", table: [
+          ["300308 中际旭创", "+5.4%", "业绩预告超预期 + 龙虎榜机构净买入", "三级 共振"],
+          ["688256 寒武纪", "+6.9%", "算力主线联动，换手 8.2% 极端分位", "三级 共振"],
+          ["300750 宁德时代", "+2.2%", "碳酸锂反弹带动产业链修复", "二级 关注"],
+          ["002594 比亚迪", "+1.3%", "销量延续强势，临近 300 关口", "二级 关注"],
+          ["600519 贵州茅台", "-0.6%", "存量博弈下失血，逼近年内三重底", "一级 弱信号"]
+        ]},
+        { h: "热点板块复盘", items: [
+          "主线：算力硬件（光模块 +5.8% / PCB +4.2%），业绩预告驱动，行情质量高于纯题材",
+          "次主线：新能源链（碳酸锂期货 +3.8% → 锂电 → 整车传导），产业联动一致性较好",
+          "资金弃守：白酒 -0.8%、银行 -0.3%，存量博弈下的「抽血效应」；券商 +1.5% 为情绪补涨"
+        ]},
+        { h: "风险与机会 · 明日跟踪", items: [
+          "<b style='color:var(--warn)'>拥挤度预警</b>：光模块成交占比 7.8%（警戒线 8%），短线交易拥挤，注意分歧阶段的高波动",
+          "<b style='color:var(--warn)'>传闻标注</b>：储能排产改善信息未经官方证实，已在解读中做「事实/传闻」分层标注，跟踪验证进度",
+          "潜在催化：3,500 整数关口攻防；碳酸锂期货若续涨，新能源链情绪延续",
+          "风险点：两市成交缩回 1.5 万亿以下则上攻动能衰减；白酒跌破 1,650 三重底或触发防御板块二次走弱"
+        ]},
+        { h: "持仓复盘（已开启）", items: [
+          "当日组合 +2.6% 跑赢上证（+0.85%），主要贡献：中际旭创、寒武纪",
+          "寒武纪持仓占比升至 18%，波动率年化 75%+，该仓位对组合日波动的贡献已达 41%，集中度风险偏高",
+          "操作复盘建议：科技持仓与白酒持仓的跷跷板结构明显，可评估组合波动敞口（仅为结构分析，非买卖建议）"
+        ]}
+      ]
+    }
+  }
+};
+
+/* ================================================================
+   渲染逻辑
+================================================================ */
+let curMarket = "us";
+let sel = { type: "index", i: 0 };   // 当前选中：指数 或 个股
+
+function fmtChg(c) { return (c > 0 ? "+" : "") + c.toFixed(2) + "%"; }
+function fmtPrice(m, p) { return m.cur + p.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function renderIndexes() {
+  const m = MARKETS[curMarket];
+  document.getElementById("index-title").textContent = "大盘指数 · " + m.name;
+  document.getElementById("index-strip").innerHTML = m.indexes.map((ix, i) => `
+    <div class="index-card ${sel.type === "index" && sel.i === i ? "selected" : ""}" onclick="selectIndex(${i})">
+      <div class="ix-head"><span class="ix-name">${ix.ticker} · ${ix.name}</span><span class="ix-badge">${ix.badge}</span></div>
+      <div><span class="ix-price">${ix.price.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</span><span class="ix-chg ${ix.chg > 0 ? "up" : "down"}">${fmtChg(ix.chg)}</span></div>
+      <div class="ix-note">${ix.note}</div>
+    </div>
+  `).join("");
+}
+
+function renderMarketBar() {
+  const m = MARKETS[curMarket];
+  const stats = m.marketBar.map(s => `
+    <div class="mb-stat"><div class="k">${s.k}</div><div class="v ${s.cls}">${s.v}</div></div>
+  `).join('<div class="mb-divider"></div>');
+  const chips = m.sectorData.map((x, i) => `<span class="sector-chip ${x.chg >= 0 ? "up" : "down"}" style="cursor:pointer" onclick="openSector(${i})">${x.name} ${fmtChg(x.chg)} · 景气 ${x.score} →</span>`).join("");
+  document.getElementById("market-bar").innerHTML = stats + `<div class="mb-sectors"><span class="lbl">板块轮动 →</span>${chips}</div>`;
+}
+
+function renderWatchlist() {
+  const m = MARKETS[curMarket];
+  document.getElementById("watchlist-title").textContent = "自选监控 · " + m.name;
+  document.getElementById("metric-th").textContent = m.metricTh;
+  document.getElementById("watchlist-body").innerHTML = m.stocks.map((s, i) => `
+    <tr class="row ${sel.type === "stock" && sel.i === i ? "selected" : ""}" onclick="selectStock(${i})">
+      <td><div class="sym"><span class="ticker">${s.ticker}</span><span class="name">${s.name}</span></div></td>
+      <td class="price">${fmtPrice(m, s.price)}</td>
+      <td class="chg ${s.chg > 0 ? "up" : "down"}">${fmtChg(s.chg)}</td>
+      <td class="num">${s.vol}</td>
+      <td class="num">${s.metric}</td>
+      <td>${s.tags.join(" ")}</td>
+      <td><span class="sig-badge sig-${s.sig}">${s.sigText}</span></td>
+    </tr>
+  `).join("");
+}
+
+function renderDetail() {
+  const m = MARKETS[curMarket];
+  const card = document.getElementById("detail-card");
+  const title = document.getElementById("detail-title");
+
+  /* ---- 指数详情 ---- */
+  if (sel.type === "index") {
+    const ix = m.indexes[sel.i], it = ix.interp;
+    title.textContent = "AI 市场分析 · " + ix.name;
+    card.innerHTML = `
+      <div class="detail-head">
+        <div>
+          <div style="font-size:13px;color:var(--text-dim);margin-bottom:2px">${ix.ticker} · ${ix.name}</div>
+          <span class="big-price">${ix.price.toLocaleString("zh-CN", { minimumFractionDigits: 2 })}</span>
+          <span class="big-chg ${ix.chg > 0 ? "up" : "down"}">${fmtChg(ix.chg)}</span>
+        </div>
+        <div class="detail-meta">${ix.meta.map(x => `<div class="m"><div class="k">${x[0]}</div><div class="v">${x[1]}</div></div>`).join("")}</div>
+      </div>
+      <div class="detail-body">
+        <div class="interpret">
+          <div class="ai-head"><span class="ai-badge">AI 市场分析</span><span class="time">今日收盘后自动生成 · 幻觉校验通过</span></div>
+          <div class="seg"><h4><span class="idx">1</span>市场事实</h4><p>${it.fact}</p><div class="src">${it.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+          <div class="seg"><h4><span class="idx">2</span>驱动原因</h4><p>${it.reason}</p></div>
+          <div class="seg"><h4><span class="idx">3</span>结构解读</h4><p>${it.read}</p></div>
+          <div class="seg"><h4><span class="idx">4</span>风险提示</h4><p>${it.risk}</p></div>
+          <div class="seg"><h4><span class="idx">5</span>跟踪建议</h4><p>${it.track}</p></div>
+          <div class="disclaim">以上为市场结构分析，不构成任何指数/个股买卖建议 · 所有结论可点击溯源至原始数据</div>
+        </div>
+        <div class="options-panel">
+          <h4>📊 市场结构面板</h4>
+          ${ix.meta.map(x => `<div class="opt-row"><span class="k">${x[0]}</span><span class="v">${x[1]}</span></div>`).join("")}
+          <div class="gex-note">${ix.note}</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  /* ---- 个股详情 ---- */
+  const s = m.stocks[sel.i];
+  const it = s.interp;
+  title.textContent = "AI 异动解读 · " + s.name;
+
+  let panelHtml = "";
+  if (s.panel === "opt") {
+    const o = s.opt;
+    panelHtml = `
+      <h4>🅾 期权结构 · ${o.expire}</h4>
+      <div class="pcr-bar">
+        <div class="lbl"><span>看跌防御</span><span>P/C ${o.pcr.toFixed(2)}</span><span>看涨进攻</span></div>
+        <div class="track"><div class="marker" style="left:${o.pcrPos}%"></div></div>
+      </div>
+      <div class="wall-viz">
+        <div class="wl"><span class="wlbl">Call Wall</span><div class="wbar call-bar" style="width:78%">${o.callWall}</div></div>
+        <div class="wl"><span class="wlbl">Put Wall</span><div class="wbar put-bar" style="width:64%">${o.putWall}</div></div>
+      </div>
+      <div class="opt-row"><span class="k">Max Pain</span><span class="v">${o.maxPain}</span></div>
+      <div class="opt-row"><span class="k">Gamma 敞口</span><span class="v">${o.gex}</span></div>
+      <div class="gex-note">期权墙 / Max Pain 为未平仓合约的统计参考位，反映做市商对冲行为的可能影响，不构成价格预测。</div>
+    `;
+  } else {
+    panelHtml = `
+      <h4>💰 资金结构面板</h4>
+      ${s.flow.rows.map(r => `<div class="opt-row"><span class="k">${r[0]}</span><span class="v ${r[2]}">${r[1]}</span></div>`).join("")}
+      <div class="gex-note">${s.flow.note}</div>
+    `;
+  }
+
+  card.innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:2px">${s.ticker} · ${s.name}${curMarket === "hk" ? " · HKEX" : curMarket === "us" ? " · NASDAQ" : " · 沪深"}</div>
+        <span class="big-price">${fmtPrice(m, s.price)}</span>
+        <span class="big-chg ${s.chg > 0 ? "up" : "down"}">${fmtChg(s.chg)}</span>
+      </div>
+      <div class="detail-meta">
+        <div class="m"><div class="k">成交量</div><div class="v">${s.vol}</div></div>
+        <div class="m"><div class="k">${m.metricTh.split("·")[0].trim()}</div><div class="v" style="font-size:12px">${s.metric.replace(/<[^>]+>/g, "")}</div></div>
+        <div class="m"><div class="k">信号分级</div><div class="v"><span class="sig-badge sig-${s.sig}">${s.sig} 级</span></div></div>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="interpret">
+        <div class="ai-head"><span class="ai-badge">AI 异动解读</span><span class="time">今日 15:42 自动生成 · 幻觉校验通过</span></div>
+        <div class="seg"><h4><span class="idx">1</span>异动事实</h4><p>${it.fact}</p><div class="src">${it.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+        <div class="seg"><h4><span class="idx">2</span>催化原因</h4><p>${it.reason}</p></div>
+        <div class="seg"><h4><span class="idx">3</span>盘面解读</h4><p>${it.read}</p></div>
+        <div class="seg"><h4><span class="idx">4</span>风险提示</h4><p>${it.risk}</p></div>
+        <div class="seg"><h4><span class="idx">5</span>跟踪建议</h4><p>${it.track}</p></div>
+        <div class="disclaim">技术信号与期权结构均为历史统计规律，不构成价格预测与买卖依据 · 所有结论可点击溯源至原始数据</div>
+      </div>
+      <div class="options-panel">${panelHtml}</div>
+    </div>
+  `;
+}
+
+function renderAlerts() {
+  const m = MARKETS[curMarket];
+  document.getElementById("alerts-title").textContent = "实时预警推送 · " + m.name;
+  document.getElementById("alerts-feed").innerHTML = m.alerts.map(a => `
+    <div class="alert-item">
+      <div class="icon ${a.icon}">${{opt:"🐋", resonance:"⚡", news:"📰", tech:"📈"}[a.icon]}</div>
+      <div class="body">
+        <div class="t">${a.t}</div>
+        <div class="d">${a.d}</div>
+        <div class="meta">${a.meta.map(x => x.startsWith("<") ? x : `<span>${x}</span>`).join("")}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderReport() {
+  const r = MARKETS[curMarket].report;
+  const secs = r.secs.map(sec => {
+    if (sec.table) {
+      return `<div class="report-sec"><h3><span class="n">${r.secs.indexOf(sec) + 1}</span>${sec.h}</h3>
+        <table class="mini-table">
+          <tr><th>标的</th><th>涨跌</th><th>核心变化</th><th>信号</th></tr>
+          ${sec.table.map(row => `<tr><td>${row[0]}</td><td class="chg ${row[1].startsWith("+") ? "up" : "down"}">${row[1]}</td><td style="white-space:normal">${row[2]}</td><td><span class="sig-badge sig-${row[3].startsWith("三级") ? 3 : row[3].startsWith("二级") ? 2 : 1}">${row[3]}</span></td></tr>`).join("")}
+        </table></div>`;
+    }
+    return `<div class="report-sec"><h3><span class="n">${r.secs.indexOf(sec) + 1}</span>${sec.h}</h3><ul>${sec.items.map(i => `<li>${i}</li>`).join("")}</ul></div>`;
+  }).join("");
+  document.getElementById("report-card").innerHTML = `
+    <div class="report-head"><h2>${r.title}</h2><div class="sub">${r.sub}</div></div>${secs}
+  `;
+}
+
+/* ================= 选择与市场切换 ================= */
+function selectIndex(i) { sel = { type: "index", i }; renderIndexes(); renderDetail(); }
+function selectStock(i) { sel = { type: "stock", i }; renderWatchlist(); renderDetail(); }
+
+function switchMarket(mk) {
+  curMarket = mk;
+  sel = { type: "index", i: 0 };
+  selSector = 0;
+  selEvent = 0;
+  renderIndexes(); renderMarketBar(); renderWatchlist(); renderDetail(); renderAlerts(); renderReport(); renderSectorView(); renderEvents();
+}
+
+document.querySelectorAll(".mkt-selector span").forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll(".mkt-selector span").forEach(x => x.classList.remove("active"));
+    el.classList.add("active");
+    switchMarket(el.dataset.mkt);
+  };
+});
+
+document.querySelectorAll("nav .tab").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll("nav .tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + t.dataset.view).classList.add("active");
+  };
+});
+
+/* ================================================================
+   板块景气数据（三市场）
+   dims: 动量/资金/情绪/基本面(0-100 正向) + 拥挤度(0-100 反向，越高越危险)
+   rot: [资金净流入(-100..100), 相对大盘动量(-100..100)]
+================================================================ */
+MARKETS.us.sectorData = [
+  { name: "半导体", score: 86, grade: "高景气", chg: 2.1, metrics: ["费半指数 +2.1% · 连续3日净流入", "板块成交占比 7.8%（92%分位）", "SOX 20日动量 +6.4%"],
+    dims: { 动量: 88, 资金: 85, 情绪: 90, 基本面: 82, 拥挤度: 76 }, rot: [68, 82],
+    leaders: [["NVDA 英伟达", "+3.2%", "放量突破 + Call 扫单"], ["AMD 超微", "+2.8%", "随板块放量"], ["AMAT 应用材料", "+2.4%", "设备低位补涨"]],
+    ai: { fact: "费半指数今日 +2.1%，板块资金连续 3 日净流入（累计 $21 亿）；板块成交占比 7.8%，处于近一年 92% 分位；SOX 成分股 Q3 业绩预期上修比例 68%。",
+      logic: "驱动：出口限制放宽预期 + 海外云厂商 AI 资本开支上修传导至硬件端；行情由业绩预期驱动，质量高于纯题材。",
+      rotation: "轮动位置：主升吸金象限（资金+动量双强），且轮动已从高位算力股向低位设备/材料扩散——通常出现在行情中后段。",
+      risk: "拥挤度 76 偏高，接近 8% 成交占比警戒线，短线分歧阶段波动放大；政策未正式落地存在反复。",
+      track: "跟踪：费半前高压力、板块成交占比是否突破 8% 警戒线、龙头财报指引。",
+      srcs: ["行情接口", "板块资金流", "OPRA期权链"] } },
+  { name: "互联网软件", score: 78, grade: "高景气", chg: 1.4, metrics: ["大厂/小厂分化明显", "AI 应用收入预期升温", "20日动量 +3.8%"],
+    dims: { 动量: 75, 资金: 70, 情绪: 72, 基本面: 76, 拥挤度: 55 }, rot: [45, 58],
+    leaders: [["MSFT 微软", "+1.6%", "Azure 增速预期稳定"], ["META", "+1.2%", "广告景气延续"], ["CRM", "-0.4%", "SaaS 权重落后"]],
+    ai: { fact: "板块 +1.4%，资金温和净流入；内部分化：AI 收入占比高的大厂强，传统 SaaS 弱。",
+      logic: "驱动：AI 应用商业化进入收入验证期，市场从「叙事定价」转向「收入定价」。",
+      rotation: "轮动位置：主升吸金象限偏内圈，强度次于半导体，属于跟随主线。",
+      risk: "AI 资本开支与收入兑现的时间差是核心矛盾；分化结构下个股选择难度高于板块判断。",
+      track: "跟踪：MSFT/META 财报中 AI 收入披露口径、板块相对费半的超额收益差。",
+      srcs: ["行情接口", "板块资金流"] } },
+  { name: "金融（银行）", score: 52, grade: "中性", chg: -0.1, metrics: ["净息差压力仍在", "降息预期博弈", "20日动量 -0.6%"],
+    dims: { 动量: 45, 资金: 40, 情绪: 38, 基本面: 60, 拥挤度: 20 }, rot: [-15, -10],
+    leaders: [["JPM 摩根大通", "+0.3%", "防御性龙头"], ["BAC 美银", "-0.6%", "息差敏感"], ["WFC 富国", "-0.8%", "落后大盘"]],
+    ai: { fact: "板块 -0.1%，资金小幅净流出；降息预期升温压低净息差预期，但信贷质量数据平稳。",
+      logic: "驱动：降息交易的双面性——分母端利好估值，息差端利空盈利，市场处于两者平衡期。",
+      rotation: "轮动位置：中枢附近，无明确方向。风险偏好回升阶段通常跑输。",
+      risk: "若经济数据转弱，商业地产敞口是尾部风险点。",
+      track: "跟踪：周四 CPI 对降息定价的影响、长端利率走势。",
+      srcs: ["行情接口", "板块资金流"] } },
+  { name: "消费（可选）", score: 58, grade: "中性", chg: 0.5, metrics: ["就业数据有韧性", "高利率压制信贷消费", "20日动量 +1.2%"],
+    dims: { 动量: 55, 资金: 48, 情绪: 50, 基本面: 62, 拥挤度: 30 }, rot: [10, 15],
+    leaders: [["AMZN 亚马逊", "+1.1%", "云+零售双引擎"], ["TSLA 特斯拉", "+1.4%", "回踩期权墙企稳"], ["NKE 耐克", "-1.2%", "消费降级压力"]],
+    ai: { fact: "板块 +0.5%，资金中性；就业韧性支撑消费能力，但信用卡违约率缓慢上行的结构隐忧仍在。",
+      logic: "驱动：无独立催化，跟随大盘 risk-on；结构上线上强于线下。",
+      rotation: "轮动位置：中枢偏上，被动跟涨，非主线。",
+      risk: "中低收入群体消费降级信号累积，Q4 财报季消费指引是验证节点。",
+      track: "跟踪：零售巨头财报指引、消费信贷违约数据。",
+      srcs: ["行情接口", "板块资金流"] } },
+  { name: "医疗健康", score: 44, grade: "低迷", chg: -0.3, metrics: ["资金持续流出", "药价政策压制", "20日动量 -1.8%"],
+    dims: { 动量: 40, 资金: 35, 情绪: 34, 基本面: 58, 拥挤度: 12 }, rot: [-35, -18],
+    leaders: [["LLY 礼来", "+1.8%", "GLP-1 独立景气"], ["UNH 联合健康", "-1.1%", "政策压力"], ["PFE 辉瑞", "-0.9%", "产品周期低谷"]],
+    ai: { fact: "板块 -0.3%，资金连续 5 日净流出；药价谈判政策预期是持续压制因素。",
+      logic: "驱动：政策压制 + 资金弃防御取进攻的双重弱势；但 GLP-1 等细分赛道存在独立景气（礼来逆势走强）。",
+      rotation: "轮动位置：资金承接与弱势失血之间——部分长线资金已在低位布局，动量尚未反转。",
+      risk: "若风险偏好逆转，超跌的医疗是资金回补首选，具有反向对冲属性。",
+      track: "跟踪：板块相对大盘的强弱比值是否出现底部钝化、政策落地节奏。",
+      srcs: ["行情接口", "板块资金流"] } },
+  { name: "能源", score: 38, grade: "低迷", chg: -0.8, metrics: ["油价周跌 3.2%", "原油库存累积", "20日动量 -4.1%"],
+    dims: { 动量: 32, 资金: 28, 情绪: 30, 基本面: 45, 拥挤度: 8 }, rot: [-58, -42],
+    leaders: [["XOM 埃克森", "-0.9%", "跟随油价"], ["CVX 雪佛龙", "-0.7%", "同板块弱势"], ["SLB 斯伦贝谢", "-1.4%", "服务链弹性放大"]],
+    ai: { fact: "板块 -0.8%，油价 WTI 周跌 3.2%，EIA 原油库存超预期累积。",
+      logic: "驱动：供给端（部分产油国增产）叠加需求端（全球制造业 PMI 弱势）双重压力。",
+      rotation: "轮动位置：弱势失血象限深处，资金与动量双弱。",
+      risk: "地缘扰动是唯一可能的向上期权，但不可作为基准假设。",
+      track: "跟踪：OPEC+ 会议、油价 $68 关键支撑、库存拐点。",
+      srcs: ["行情接口", "EIA库存数据"] } }
+];
+
+MARKETS.hk.sectorData = [
+  { name: "科网互联网", score: 82, grade: "高景气", chg: 2.3, metrics: ["板块成交占大市 44%", "南向净买入主力方向", "财报季前布局资金集中"],
+    dims: { 动量: 85, 资金: 82, 情绪: 78, 基本面: 74, 拥挤度: 62 }, rot: [72, 70],
+    leaders: [["9988 阿里", "+2.6%", "放量突破+外资行上调"], ["0700 腾讯", "+1.9%", "财报前南向加仓"], ["3690 美团", "-1.1%", "长短资金分歧"]],
+    ai: { fact: "板块 +2.3%，成交占大市 44%；南向资金主要流入方向，外资亦有回流迹象（美元走弱配合）。",
+      logic: "驱动：财报季前布局 + 美元走弱提升中资资产吸引力双催化；龙头财报（下周）为方向性验证节点。",
+      rotation: "轮动位置：主升吸金象限，但拥挤度 62 中偏高——财报若不及预期，板块回撤弹性大。",
+      risk: "财报集中披露期事件风险；美元反弹将直接逆转外资回流逻辑。",
+      track: "跟踪：腾讯（10/15）、美团（10/16）财报、南向资金连续性。",
+      srcs: ["港交所行情", "南向资金·实时"] } },
+  { name: "汽车（含新势力链）", score: 74, grade: "高景气", chg: 1.8, metrics: ["小米 SU7 周交付 4,800 台新高", "碳酸锂反弹带动产业链", "智能化主线强于总量"],
+    dims: { 动量: 72, 资金: 70, 情绪: 68, 基本面: 72, 拥挤度: 48 }, rot: [52, 55],
+    leaders: [["1810 小米", "+3.4%", "交付数据驱动三线流入"], ["9866 蔚来", "+1.6%", "新势力跟涨"], ["1211 比亚迪", "+1.9%", "月销数据强势"]],
+    ai: { fact: "板块 +1.8%；小米 SU7 周交付 4,800 台创单周新高，带动产业链（零部件/智驾）联动。",
+      logic: "驱动：智能化叙事（而非总量增长）是本轮估值锚——数据验证期的交付周报成为高频催化。",
+      rotation: "轮动位置：主升吸金象限，强度次于科网，动量由数据节奏驱动。",
+      risk: "板块对「周度交付数据」的敏感度极高，数据边际放缓即触发回调；价格战仍是全年约束。",
+      track: "跟踪：每周二交付数据、Q4 排产指引、碳酸锂价格联动。",
+      srcs: ["港交所行情", "乘联会/公司交付数据"] } },
+  { name: "消费（餐饮文旅）", score: 60, grade: "中性", chg: 0.9, metrics: ["假期客流数据平稳", "政策刺激预期反复", "客单价仍偏弱"],
+    dims: { 动量: 55, 资金: 52, 情绪: 55, 基本面: 62, 拥挤度: 25 }, rot: [18, 12],
+    leaders: [["0991 华润啤酒", "+1.4%", "防御性消费"], ["1928 金龙鱼", "-0.6%", "成本端改善"], ["0763 中兴通讯外", "+0.8%", "—"]],
+    ai: { fact: "板块 +0.9%，十一假期客流数据平稳但客单价同比仍偏弱，量增价减格局延续。",
+      logic: "驱动：无强催化，政策刺激预期（以旧换新扩围）是主要博弈点。",
+      rotation: "轮动位置：中枢偏上，被动配置属性。",
+      risk: "消费力修复慢于客流修复，财报季客单价数据是核心验证。",
+      track: "跟踪：月度社零数据、政策扩围节奏。",
+      srcs: ["港交所行情", "统计局数据"] } },
+  { name: "金融（内银内险）", score: 55, grade: "中性", chg: 0.4, metrics: ["高股息防御属性", "保险保费增速平稳", "落后科网 1.9 个百分点"],
+    dims: { 动量: 48, 资金: 45, 情绪: 42, 基本面: 65, 拥挤度: 15 }, rot: [-8, -5],
+    leaders: [["1398 工商银行", "+0.6%", "高股息配置盘"], ["2628 中国人寿", "+0.3%", "险资哑铃策略"], ["3988 银行(平均)", "+0.4%", "板块性小幅跟涨"]],
+    ai: { fact: "板块 +0.4%，明显落后大盘；险资与 passive 资金为主要持有方，主动资金参与度低。",
+      logic: "驱动：risk-on 阶段防御属性拖累；但 5%+ 股息率在利率下行环境有绝对收益资金托底。",
+      rotation: "轮动位置：中枢略弱。若科技主线降温，高股息是资金回流首选。",
+      risk: "净息差收窄压力长期存在；地产敞口是银行资产质量的核心变量。",
+      track: "跟踪：板块/科网相对强弱比值（轮动信号）、长端利率。",
+      srcs: ["港交所行情", "板块资金流"] } },
+  { name: "医药", score: 42, grade: "低迷", chg: -0.6, metrics: ["创新药出海逻辑未变但估值杀", "资金连续流出", "集采常态化影响钝化"],
+    dims: { 动量: 38, 资金: 35, 情绪: 36, 基本面: 58, 拥挤度: 10 }, rot: [-30, -25],
+    leaders: [["2269 药明生物", "-1.8%", "海外订单预期反复"], ["1801 信达生物", "+0.5%", "出海数据独立催化"], ["1093 石药", "-0.9%", "仿制药承压"]],
+    ai: { fact: "板块 -0.6%，资金连续 8 个交易日净流出；创新药 License-out 交易金额仍处高位，但股价未反映。",
+      logic: "驱动：基本面（出海）与资金面（撤离）背离——典型的高赔率低胜率位置。",
+      rotation: "轮动位置：弱势失血象限，但拥挤度极低（10），逆向资金关注度高。",
+      risk: "出海逻辑的地缘政策扰动是核心尾部风险。",
+      track: "跟踪：板块成交额是否出现底部放量、BD 交易公告节奏。",
+      srcs: ["港交所行情", "板块资金流"] } },
+  { name: "地产", score: 48, grade: "低迷", chg: 0.9, metrics: ["政策预期反复驱动", "销售数据未见拐点", "央企龙头显著强于民企"],
+    dims: { 动量: 45, 资金: 42, 情绪: 48, 基本面: 30, 拥挤度: 18 }, rot: [8, -12],
+    leaders: [["0688 中国海外发展", "+1.6%", "央企信用溢价"], ["0960 龙湖", "+0.8%", "融资改善预期"], ["2007 碧桂园", "0.0%", "流动性问题未解"]],
+    ai: { fact: "板块 +0.9%，但内部分化极端：央企/国企背景开发商上涨，民企平盘或下跌。",
+      logic: "驱动：纯政策预期驱动（收储/融资工具扩围传闻），销售基本面（高频数据）尚未反转。",
+      rotation: "轮动位置：资金承接象限（资金小幅试探、动量仍弱）——左侧特征明显。",
+      risk: "政策预期落空的历史概率不低；民企信用风险尾部仍在出清。",
+      track: "跟踪：每周高频销售数据、政策官宣（传闻需事实分层标注）、央企/民企分化度。",
+      srcs: ["港交所行情", "克而瑞高频销售数据"] } }
+];
+
+MARKETS.a.sectorData = [
+  { name: "半导体（算力硬件）", score: 88, grade: "高景气", chg: 5.8, metrics: ["光模块 +5.8% · 业绩预告驱动", "板块成交占比 7.8%（警戒 8%）", "机构+北向+主力三线流入"],
+    dims: { 动量: 92, 资金: 88, 情绪: 90, 基本面: 80, 拥挤度: 84 }, rot: [82, 88],
+    leaders: [["300308 中际旭创", "+5.4%", "Q3 预告超预期+机构买入"], ["688256 寒武纪", "+6.9%", "高换手动量·游资主导"], ["002463 沪电股份", "+4.2%", "PCB 联动"]],
+    ai: { fact: "光模块 +5.8%、PCB +4.2%；板块成交占比 7.8% 接近 8% 警戒线；主力+北向+龙虎榜机构席位三线共振流入。",
+      logic: "驱动：Q3 业绩预告密集超预期，行情从「预期驱动」切换为「业绩驱动」，是 A 股质量最高的行情类型。",
+      rotation: "轮动位置：主升吸金象限顶点，但拥挤度 84 已达极端——历史上该状态后 5 日波动率显著抬升，进入「趋势未完但需敬畏分歧」阶段。",
+      risk: "成交占比破 8% 后历史胜率下降；高位股（寒武纪类）与业绩股（中际旭创类）筹码结构不同，回撤方式也不同。",
+      track: "跟踪：板块成交占比、龙头业绩预告后的利好兑现节奏、拥挤度拐点。",
+      srcs: ["沪深交易所行情", "龙虎榜数据", "板块资金流"] } },
+  { name: "互联网传媒", score: 70, grade: "高景气", chg: 1.8, metrics: ["AI 应用题材联动", "游戏板块业绩稳健", "20日动量 +4.2%"],
+    dims: { 动量: 68, 资金: 65, 情绪: 70, 基本面: 66, 拥挤度: 42 }, rot: [48, 52],
+    leaders: [["300413 芒果超媒", "+2.6%", "AI 内容题材"], ["002602 世纪华通", "+3.1%", "游戏业绩+AI"], ["603444 吉比特", "+0.9%", "稳健业绩"]],
+    ai: { fact: "板块 +1.8%，资金净流入但强度中等；AI 应用题材与游戏业绩形成双轮。",
+      logic: "驱动：算力硬件行情的下游扩散（从「卖铲人」到「用铲人」），属于主线外溢。",
+      rotation: "轮动位置：主升吸金象限外围，是主线过热时资金的次选方向。",
+      risk: "题材属性强于业绩属性，拥挤度尚可但持续性依赖主线传导。",
+      track: "跟踪：算力主线拥挤度（外溢逻辑的前提）、板块成交占比变化。",
+      srcs: ["沪深交易所行情", "板块资金流"] } },
+  { name: "券商金融", score: 62, grade: "中性", chg: 1.5, metrics: ["放量 1.82 万亿的直接受益方", "经纪+两融业务弹性", "牛市旗手情绪属性"],
+    dims: { 动量: 65, 资金: 58, 情绪: 66, 基本面: 55, 拥挤度: 35 }, rot: [38, 42],
+    leaders: [["600030 中信证券", "+2.1%", "龙头放量"], ["601995 中金公司", "+1.8%", "指数权重"], ["300059 东方财富", "+2.4%", "零售经纪弹性"]],
+    ai: { fact: "板块 +1.5%；两市成交 1.82 万亿（放量 1,400 亿），两融余额回升至 1.92 万亿。",
+      logic: "驱动：量能放大直接利好经纪/两融/自营业务，是「市场的贝塔放大器」。",
+      rotation: "轮动位置：主升吸金象限边缘，属于情绪后周期——通常在指数放量突破时启动，持续性取决于量能。",
+      risk: "成交若缩回 1.5 万亿以下，板块逻辑直接弱化；对指数回撤的敏感度高于其他板块。",
+      track: "跟踪：两市成交额（核心变量）、两融余额、指数 3,500 攻防。",
+      srcs: ["沪深交易所行情", "两融数据"] } },
+  { name: "新能源（锂电）", score: 66, grade: "中性偏暖", chg: 1.2, metrics: ["碳酸锂期货 +3.8% 反弹", "储能排产改善传闻（未证实）", "产业链联动修复"],
+    dims: { 动量: 60, 资金: 62, 情绪: 58, 基本面: 52, 拥挤度: 28 }, rot: [42, 30],
+    leaders: [["300750 宁德时代", "+2.2%", "产业链修复龙头"], ["002594 比亚迪", "+1.3%", "月销数据强势"], ["002460 赣锋锂业", "+3.6%", "锂价反弹弹性"]],
+    ai: { fact: "板块 +1.2%；碳酸锂期货主力 +3.8%，锂矿—电池—整车全链条联动修复；储能排产改善信息流传但未经官方证实（已做事实/传闻分层标注）。",
+      logic: "驱动：供给端（锂价超跌反弹）+ 需求端（排产传闻）双预期博弈，尚无硬数据验证。",
+      rotation: "轮动位置：资金承接向主升过渡区——资金先于动量进场，属于左侧修复早段。",
+      risk: "锂价反弹若为供给扰动驱动则持续性存疑；排产传闻证伪风险。",
+      track: "跟踪：碳酸锂期货持续性、10 月排产数据验证、宁德 Q3 毛利率。",
+      srcs: ["沪深交易所行情", "广期所行情", "产业链调研（标注未证实）"] } },
+  { name: "白酒消费", score: 35, grade: "低迷", chg: -0.8, metrics: ["飞天批价 2,410 元（周环比 -0.5%）", "主力+北向双流出", "存量博弈下持续失血"],
+    dims: { 动量: 30, 资金: 32, 情绪: 28, 基本面: 42, 拥挤度: 8 }, rot: [-45, -38],
+    leaders: [["600519 贵州茅台", "-0.6%", "逼近年内三重底"], ["000858 五粮液", "-1.2%", "批价跟随走弱"], ["000568 泸州老窖", "-0.9%", "同板块弱势"]],
+    ai: { fact: "板块 -0.8%；飞天散瓶批价 2,410 元周环比 -0.5%，连续 6 周走弱；主力与北向双流出，白酒ETF 份额反增（逆势资金存在）。",
+      logic: "驱动：批价疲软反映终端需求弱势 + 科技主线吸金的存量博弈「抽血效应」，双因素叠加。",
+      rotation: "轮动位置：弱势失血象限深处，但拥挤度 8 极低——若科技主线降温，这里是资金回补弹性最大的方向之一。",
+      risk: "批价若跌破 2,400 元心理关口，渠道去库存压力二次释放；基本面反转无时间表。",
+      track: "跟踪：周度批价数据（核心）、北向流向拐点、1,650 三重底支撑。",
+      srcs: ["沪深交易所行情", "批价渠道数据", "北向资金·实时"] } },
+  { name: "医药", score: 48, grade: "中性偏弱", chg: 0.2, metrics: ["创新药出海逻辑延续", "集采影响钝化", "资金小幅回流试探"],
+    dims: { 动量: 45, 资金: 48, 情绪: 42, 基本面: 55, 拥挤度: 15 }, rot: [15, -8],
+    leaders: [["603259 药明康德", "+1.8%", "海外订单回升"], ["688180 君实生物", "+2.2%", "BD 交易催化"], ["600276 恒瑞医药", "+0.4%", "创新药龙头平稳"]],
+    ai: { fact: "板块 +0.2%，资金由流出转为小幅试探性回流；创新药 BD（对外授权）交易金额同比 +35%。",
+      logic: "驱动：出海逻辑是独立于大盘的景气来源；估值处于近五年 12% 分位的极低位置。",
+      rotation: "轮动位置：资金承接象限（资金入、动量弱）——左侧布局特征，与白酒同属低拥挤度方向。",
+      risk: "地缘政策对 CXO 海外订单的扰动；医保谈判降价幅度。",
+      track: "跟踪：板块成交底部放量信号、BD 公告节奏、医保谈判结果。",
+      srcs: ["沪深交易所行情", "板块资金流"] } }
+];
+
+let selSector = 0;
+
+function scoreColor(s) { return s >= 70 ? "var(--up)" : s >= 55 ? "var(--info)" : "var(--down)"; }
+function gradeCls(g) { return g.includes("高") ? "grade-hi" : g.includes("低迷") ? "grade-lo" : "grade-mid"; }
+
+function renderSectorView() {
+  const m = MARKETS[curMarket];
+  document.getElementById("sector-view-title").textContent = "板块景气 · " + m.name;
+  document.getElementById("sector-grid").innerHTML = m.sectorData.map((sc, i) => `
+    <div class="sector-card ${selSector === i ? "selected" : ""}" onclick="selectSector(${i})">
+      <div class="ring" style="background:conic-gradient(${scoreColor(sc.score)} calc(${sc.score} * 1%), #232c42 0)">
+        <div class="ring-in" style="color:${scoreColor(sc.score)}">${sc.score}</div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-name">${sc.name}<span class="grade-chip ${gradeCls(sc.grade)}">${sc.grade}</span></div>
+        <div class="sc-chg ${sc.chg > 0 ? "up" : "down"}">${fmtChg(sc.chg)} · 板块指数</div>
+        <div class="sc-metrics">${sc.metrics.join("<br>")}</div>
+      </div>
+    </div>
+  `).join("");
+  renderSectorDetail();
+  renderRotMap();
+}
+
+function renderSectorDetail() {
+  const sc = MARKETS[curMarket].sectorData[selSector];
+  document.getElementById("sector-detail-title").textContent = "板块解读 · " + sc.name;
+  const dimRows = [
+    ["动量", sc.dims.动量, "pos"], ["资金", sc.dims.资金, "pos"], ["情绪", sc.dims.情绪, "pos"],
+    ["基本面", sc.dims.基本面, "pos"], ["拥挤度", sc.dims.拥挤度, "warn"]
+  ].map(d => `
+    <div class="dim-row">
+      <span class="dk">${d[0]}${d[2] === "warn" ? " ⚠" : ""}</span>
+      <div class="dtrack"><div class="dbar ${d[2]}" style="width:${d[1]}%"></div></div>
+      <span class="dv">${d[1]}</span>
+    </div>`).join("");
+  document.getElementById("sector-detail").innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:2px">板块景气度综合评分</div>
+        <span class="big-price" style="color:${scoreColor(sc.score)}">${sc.score}</span>
+        <span class="big-chg ${sc.chg > 0 ? "up" : "down"}">${fmtChg(sc.chg)} 今日</span>
+        <span class="grade-chip ${gradeCls(sc.grade)}" style="margin-left:10px;font-size:13px">${sc.grade}</span>
+      </div>
+      <div class="detail-meta">
+        <div class="m"><div class="k">五维拆解 →</div><div class="v" style="font-size:12px">动量 ${sc.dims.动量} · 资金 ${sc.dims.资金} · 拥挤 ${sc.dims.拥挤度}</div></div>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div class="interpret">
+        <div class="ai-head"><span class="ai-badge">AI 板块解读</span><span class="time">每日 16:00 更新 · 规则引擎计算 + AI 转译</span></div>
+        <div class="seg"><h4><span class="idx">1</span>景气事实</h4><p>${sc.ai.fact}</p><div class="src">${sc.ai.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+        <div class="seg"><h4><span class="idx">2</span>驱动逻辑</h4><p>${sc.ai.logic}</p></div>
+        <div class="seg"><h4><span class="idx">3</span>轮动位置</h4><p>${sc.ai.rotation}</p></div>
+        <div class="seg"><h4><span class="idx">4</span>风险与跟踪</h4><p>${sc.ai.risk}<br>${sc.ai.track}</p></div>
+        <div class="disclaim">景气度为历史数据复合评分，不构成任何板块/个股买卖建议 · 拥挤度为反向指标（越高风险越大）</div>
+      </div>
+      <div class="options-panel">
+        <h4>五维景气拆解</h4>
+        <div class="dim-rows" style="padding:0">
+          ${dimRows}
+          <div class="dim-note">动量/资金/情绪/基本面为正向评分；<b style="color:var(--warn)">拥挤度为反向指标</b>，>70 代表交易拥挤、短线风险高。</div>
+        </div>
+        <h4 style="margin-top:14px">龙头标的</h4>
+        <table class="leaders-table">
+          ${sc.leaders.map(l => `<tr><td><b>${l[0]}</b></td><td class="chg ${l[1].startsWith("+") ? "up" : "down"}">${l[1]}</td><td style="color:var(--text-dim)">${l[2]}</td></tr>`).join("")}
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderRotMap() {
+  const m = MARKETS[curMarket];
+  const map = document.getElementById("rot-map");
+  map.querySelectorAll(".rot-dot").forEach(d => d.remove());
+  m.sectorData.forEach((sc, i) => {
+    const x = (sc.rot[0] + 100) / 2, y = 100 - (sc.rot[1] + 100) / 2;
+    const cls = sc.score >= 70 ? "hot" : sc.score < 50 ? "cold" : "mid";
+    const dot = document.createElement("div");
+    dot.className = "rot-dot";
+    dot.style.left = x + "%"; dot.style.top = y + "%";
+    dot.onclick = () => selectSector(i);
+    dot.innerHTML = `<div class="pt ${cls} ${selSector === i ? "selected" : ""}"></div><span class="plbl">${sc.name}</span>`;
+    map.appendChild(dot);
+  });
+}
+
+function selectSector(i) { selSector = i; renderSectorView(); }
+
+function openSector(i) {
+  document.querySelectorAll("nav .tab").forEach(x => x.classList.remove("active"));
+  document.querySelector('nav .tab[data-view="sector"]').classList.add("active");
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("view-sector").classList.add("active");
+  selSector = i; renderSectorView();
+}
+
+/* ================= 投研日志 ================= */
+const JOURNAL = [
+  { type: "note", icon: "✍", time: "2026-10-07 21:40", tag: "我的笔记", title: "复盘思考：光模块拥挤度的处理",
+    text: "今天 AI 提示板块成交占比 7.8% 接近警戒线。回看 8 月那波 AI 主线，占比破 8% 后第 3 天开始分歧。<b>经验沉淀：拥挤度预警出现时，不做清仓动作，改为减半观察仓 + 盯成交占比拐点</b>。等这波验证后再回来核对。",
+    foot: ["关联标的：中际旭创", "自选标签：算力主线"] },
+  { type: "report", icon: "📄", time: "2026-10-07 16:30", tag: "自动归档", title: "每日 AI 复盘报告 · 美股 · 2026-10-07",
+    text: "标普 +0.62% 连涨 4 日，正 GEX 压波动；半导体主线 +2.1%，拥挤度开始积累。风险提示：周五期权集中到期 + 周四 CPI。自选 5 只，三级信号 2 只（NVDA / MSTR）。",
+    foot: ["查看完整报告 →（联动复盘视图）", "关联：预警 6 条 · 解读 4 条"] },
+  { type: "alert", icon: "⚡", time: "2026-10-07 14:32", tag: "已归档 · 三级", title: "NVDA · 三级共振预警（已触发验证）",
+    text: "价格 +3.2% + 主力净流入 $2.8 亿 + Call sweep $480 万三重共振。后续走势：触发后 2 小时再涨 0.8%，尾盘回吐至 +3.2% 收盘。<b>本次预警有效率：中</b>（有跟随但幅度有限，逼近 Call Wall $135 后受阻，与解读中提示一致）。",
+    foot: ["预警回溯 · 有效率统计：本月三级预警 23 次中 14 次有效（61%）"] },
+  { type: "interp", icon: "🐋", time: "2026-10-07 11:15", tag: "解读归档", title: "TSLA · 期权墙逼近解读（已归档）",
+    text: "现价接近 Put Wall $240（4.2 万手，本周五到期）。历史统计：该类结构下价格有支撑倾向但非确定事件。后续走势：当日最低 $243.1，未触及 $240。",
+    foot: ["数据溯源：OPRA 期权链", "关联：期权结构分析"] },
+  { type: "report", icon: "📄", time: "2026-10-06 16:30", tag: "自动归档", title: "每日 AI 复盘报告 · 美股 · 2026-10-06",
+    text: "标普 +0.44%，缩量整理，科技内部分化（软件强于硬件）。自选 5 只，无三级信号。次日跟踪提示：关注半导体板块财报指引。",
+    foot: ["查看完整报告 →", "已验证：今日半导体确实放量走强"] },
+  { type: "note", icon: "✍", time: "2026-10-05 20:12", tag: "我的笔记", title: "持仓纪律检查（月度）",
+    text: "AI 持仓复盘提示 AAPL 仓位 38% 集中度偏高、寒武纪波动贡献占组合 41%。<b>决定：下周财报前将单一事件敞口（腾讯财报）控制在组合 15% 以内</b>。复盘周期：每月 5 日。",
+    foot: ["关联：持仓复盘模块"] }
+];
+
+let journalFilter = "all";
+function renderJournal() {
+  const list = document.getElementById("journal-list");
+  const cls = { report: "ji-report", alert: "ji-alert", interp: "ji-interp", note: "ji-note" };
+  const items = JOURNAL.filter(j => journalFilter === "all" || j.type === journalFilter);
+  list.innerHTML = items.map(j => `
+    <div class="j-entry">
+      <div class="j-icon ${cls[j.type]}">${j.icon}</div>
+      <div class="j-body">
+        <div class="j-title">${j.title}<span class="j-tag">${j.tag}</span></div>
+        <div class="j-text">${j.text}</div>
+        <div class="j-foot">${j.foot.map(f => `<span>${f}</span>`).join("")}<span>${j.time}</span></div>
+      </div>
+    </div>
+  `).join("");
+}
+document.querySelectorAll("#journal-filters .jf").forEach(f => {
+  f.onclick = () => {
+    document.querySelectorAll("#journal-filters .jf").forEach(x => x.classList.remove("active"));
+    f.classList.add("active");
+    journalFilter = f.dataset.f;
+    renderJournal();
+  };
+});
+renderJournal();
+
+/* ================================================================
+   事件日历数据（三市场）· imp: 1-3 · status: near(临近)/wait(待公布)
+================================================================ */
+const EV_T = { 宏观: "et-macro", 财报: "et-earn", 期权: "et-opt", 政策: "et-policy", 联动: "et-link" };
+MARKETS.us.events = [
+  { d: "10-08 周四", today: true, time: "20:30", title: "美国 9 月 CPI", type: "宏观", imp: 3, status: "near",
+    sub: "预期同比 2.6%（前值 2.9%）· 核心 3.2% · 11月降息定价 78%",
+    ai: { fact: "今晚 20:30（美东）公布 9 月 CPI，预期同比 2.6%、核心 3.2%。期权市场已定价标普 ±0.8% 单日波动（普通日约 0.5%），VIX 期货升水 1.2pts，事件溢价明显。",
+      logic: "传导链：低于预期 → 降息定价强化 → 成长股/黄金受益、美元走弱；高于预期 → 反向。近 6 个月 CPI 公布日半导体平均波动 1.8 倍于大盘。",
+      vol: "波动预警：① 高 Beta 仓位（半导体/加密）事件敞口检查；② 期权买方注意 IV 落地后快速回落风险；③ 预期区间分歧大（2.5%~2.8%），分项（住房/服务）可能引发结构性解读差异。",
+      srcs: ["BLS日历", "CME FedWatch", "OPRA期权链"] } },
+  { d: "10-10 周五", today: false, time: "盘前", title: "Q3 财报季开启 · 摩根大通/富国/贝莱德", type: "财报", imp: 3, status: "wait",
+    sub: "财报季风向标 · 标普 Q3 盈利预期 +5.1%",
+    ai: { fact: "Q3 财报季开启，大型银行盘前披露。银行股期权 IV 处于常规财报溢价区间（JPM 溢价 6pts）。",
+      logic: "财报季首周银行股指引（信贷质量/资本开支）影响板块资金流向；「事件前 IV 高企、落地后 IV crush」是期权买方历史低胜率场景。",
+      vol: "波动预警：与月度期权到期同日（双事件叠加），NVDA/TSLA 到期墙位与财报季首日共振，波动预期上调。",
+      srcs: ["公司财报日历", "OPRA期权链"] } },
+  { d: "10-10 周五", today: false, time: "全天", title: "月度期权到期（OpEx）· NVDA/TSLA 等", type: "期权", imp: 2, status: "wait",
+    sub: "NVDA Call Wall $135 / Max Pain $130 · TSLA Put Wall $240",
+    ai: { fact: "月度期权集中到期。自选中 NVDA、TSLA 均有大额未平仓到期，期权墙与 Max Pain 详见监控看板。",
+      logic: "到期周价格有向 Max Pain 收敛的统计倾向（概率非确定）；正 GEX 环境下收敛概率更高，放量突破墙位则反向放大。",
+      vol: "波动预警：到期日尾盘（美东 15:00-16:00）做市商再平衡放大波动；到期后墙位失效、结构重算。",
+      srcs: ["OPRA期权链", "自研期权结构计算"] } },
+  { d: "10-15 周三", today: false, time: "盘后", title: "MSTR Q3 财报", type: "财报", imp: 2, status: "wait",
+    sub: "IV 88.6 近 3 月高位 · 财报博弈拥挤",
+    ai: { fact: "MSTR 下周三盘后财报，IV 88.6（周 +12pts），隐含 ±9% 周内波动，事件定价充分。",
+      logic: "BTC 相关度 0.85+，历史常态是「财报影响 < 币价影响」；若 BTC 当日平稳，财报后 IV crush 剧烈。",
+      vol: "波动预警：高 IV + 负 GEX 双向放大，期权买方面临「波动不达定价即亏损」的结构性风险。",
+      srcs: ["公司财报日历", "OPRA期权链"] } },
+  { d: "10-28 周三", today: false, time: "两日", title: "FOMC 议息会议", type: "宏观", imp: 3, status: "wait",
+    sub: "10-29 凌晨利率决议 + 鲍威尔发布会",
+    ai: { fact: "FOMC 10/28-29 举行，决议北京时间 10/29 凌晨 2:00 公布。当前 11 月降息 25bp 概率定价 78%。",
+      logic: "议息周标普平均波动 1.5 倍于普通周；「决议符合预期但发布会偏鹰」是近一年最常见的反转剧本。",
+      vol: "波动预警：决议前 48h 起推送倒计时与敞口检查；港A股用户注意落地时点在亚洲盘前，开盘跳空直接消化。",
+      srcs: ["Fed日历", "CME FedWatch"] } },
+  { d: "11-06 周五", today: false, time: "20:30", title: "美国 10 月非农（大非农）", type: "宏观", imp: 3, status: "wait",
+    sub: "预期新增就业 14.5 万 · 失业率 4.3%",
+    ai: { fact: "10 月非农 11/06 公布，预期新增 14.5 万、失业率 4.3%。",
+      logic: "就业是当前 Fed 决策权重最高序列；若与 CPI 方向矛盾，市场通常跟随 CPI。",
+      vol: "波动预警：非农与 FOMC 仅隔一周，数据链连续定价；10 月数据受政府停摆影响可能失真，噪音高于往常。",
+      srcs: ["BLS日历", "CME FedWatch"] } }
+];
+MARKETS.hk.events = [
+  { d: "10-08 周四", today: true, time: "20:30", title: "美国 9 月 CPI（跨市场联动）", type: "联动", imp: 3, status: "near",
+    sub: "美元/外资流向 · 明日港股开盘直接消化",
+    ai: { fact: "港股对隔夜 CPI 反应的 Beta 约 1.3 倍（放大效应）；当前美元 101.2，本轮港股主升的核心假设是外资回流。",
+      logic: "若 CPI 超预期 → 美元走强 → 外资回流逻辑中断风险，科网板块（外资加仓主力）弹性最大。",
+      vol: "波动预警：联动事件无法在港股交易时段对冲，仓位管理需前置；开盘后首个 30 分钟南向承接力度决定高开低走/低开高走。",
+      srcs: ["BLS日历", "港交所行情"] } },
+  { d: "10-13 周一", today: false, time: "09:30", title: "中国 9 月 CPI / PPI", type: "宏观", imp: 3, status: "wait",
+    sub: "预期 CPI 0.5% · PPI -1.8% 降幅收窄",
+    ai: { fact: "9 月 CPI/PPI 下周一公布，预期 CPI 0.5%、PPI -1.8%（降幅连续收窄）。",
+      logic: "PPI 收窄是中游制造业毛利率修复的先行指标；港股更多通过人民币汇率渠道间接反应。",
+      vol: "波动预警：数据公布时点（9:30）紧贴开盘，竞价阶段波动大。",
+      srcs: ["统计局日历"] } },
+  { d: "10-15 周三", today: false, time: "盘后", title: "腾讯控股 Q3 财报", type: "财报", imp: 3, status: "wait",
+    sub: "恒指第一权重 · IV 31.2 事件溢价抬升中",
+    ai: { fact: "腾讯财报下周三盘后，IV 31.2（周 +2.4pts），隐含财报后 ±4.5% 波动；南向 5 日持股 +0.9%，财报前布局迹象。",
+      logic: "焦点：游戏流水、视频号广告、AI 资本开支指引。历史规律：财报次日恒指相关性 0.72（权重效应）；「超预期但高开低走」近两年出现 4 次，追高胜率低。",
+      vol: "波动预警：持仓腾讯 + 科网 ETF 的事件敞口是叠加的，需合并计算；期权流动性有限，仓位前置管理优于事后对冲。",
+      srcs: ["公司财报日历", "港股期权链", "南向资金·实时"] } },
+  { d: "10-16 周四", today: false, time: "盘后", title: "美团 Q3 财报", type: "财报", imp: 2, status: "wait",
+    sub: "与腾讯背靠背 · 长短资金分歧中",
+    ai: { fact: "美团财报下周四盘后，当前主力净流出但南向持股逆势微增。",
+      logic: "焦点：外卖单量、即时零售竞争（补贴战）、利润率指引——竞争加剧期「份额 vs 利润」取舍敏感度极高。",
+      vol: "波动预警：与腾讯财报背靠背，科网持仓连续两个事件日。",
+      srcs: ["公司财报日历"] } },
+  { d: "10-20 周一", today: false, time: "09:15", title: "LPR 报价（10月）", type: "政策", imp: 2, status: "wait",
+    sub: "内房/银行链 · 预期持稳",
+    ai: { fact: "10 月 LPR 预期持稳（9 月 5 年期已下调 25bp）。",
+      logic: "内房定价核心是收储/存量房贷等增量政策而非 LPR 本身；政策窗口（人大常委会 10 月底）前的预期博弈。",
+      vol: "波动预警：内房持仓者注意政策空窗期的双向波动。",
+      srcs: ["央行公告日历"] } },
+  { d: "10-28 周三", today: false, time: "凌晨", title: "FOMC 议息（跨市场联动）", type: "联动", imp: 3, status: "wait",
+    sub: "港股开盘前落地 · 联系汇率制直接传导",
+    ai: { fact: "FOMC 决议北京时间 10/29 凌晨 2:00 公布，港股 9:30 开盘直接消化；联系汇率制下美元流动性直接传导。",
+      logic: "降息 → HIBOR 回落 → 流动性改善，科网/地产弹性最大；历史规律：降息后 1 个月港股平均跑赢 A 股。",
+      vol: "波动预警：恒指连涨阶段 + 事件窗口 + 24,500 压力区三者共振；若 FOMC 偏鹰，外资回流的核心假设被直接挑战。",
+      srcs: ["Fed日历", "HIBOR数据"] } }
+];
+MARKETS.a.events = [
+  { d: "10-09 周五", today: false, time: "10:00", title: "海关总署 9 月进出口数据", type: "宏观", imp: 2, status: "wait",
+    sub: "出口链（家电/机械/消费电子）· 预期出口 +5.2%",
+    ai: { fact: "明早公布 9 月进出口数据，预期出口同比 +5.2%（前值 +6.8%，高基数回落）。",
+      logic: "出口链 Q4 订单指引是财报季先行变量；数据与 PMI 新出口订单方向通常一致。",
+      vol: "波动预警：持有出口链个股注意明早盘前竞价波动；高基数下同比读数失真，环比更能反映动能。",
+      srcs: ["海关总署日历"] } },
+  { d: "10-13 周一", today: false, time: "09:30", title: "统计局 9 月 CPI / PPI", type: "宏观", imp: 3, status: "wait",
+    sub: "PPI 降幅连续 3 月收窄 · 盈利底验证",
+    ai: { fact: "9 月 CPI/PPI 下周一公布，预期 CPI 0.5%、PPI -1.8%（降幅连续收窄）。",
+      logic: "PPI 收窄 = 中游制造业毛利率修复先行信号；「盈利底」确认依赖此数据链。历史规律：PPI 拐点期间顺周期（化工/有色/机械）相对胜率约 65%。",
+      vol: "波动预警：数据公布与开盘竞价重叠，注意跳空；当日恰逢三季报预告密集期，双信息流。",
+      srcs: ["统计局日历"] } },
+  { d: "10-16 周四", today: false, time: "盘后", title: "9 月金融数据（社融/信贷/M2）", type: "宏观", imp: 3, status: "wait",
+    sub: "预期社融 3.4 万亿 · 居民中长贷是焦点",
+    ai: { fact: "9 月社融数据下周四盘后或周五公布，预期社融增量 3.4 万亿、新增信贷 2.1 万亿。",
+      logic: "金融数据是「政策效果」验证链核心——居民中长贷（房贷）能否连续回升，直接决定「地产企稳」叙事成立与否。历史：社融超预期 → 银行/地产/顺周期次日强势（胜率 60%+）。",
+      vol: "波动预警：与三季报预告窗口重叠，下周为信息密度峰值周；政府债券发行节奏对读数的扰动需剔除分析。",
+      srcs: ["央行/统计局日历"] } },
+  { d: "10-20 周一", today: false, time: "09:15", title: "LPR 报价（10月）", type: "政策", imp: 2, status: "wait",
+    sub: "银行/地产 · 预期持稳 · 关注宽信用验证",
+    ai: { fact: "10 月 LPR 预期持稳（9 月 5 年期已下调 25bp）。",
+      logic: "LPR 落地后市场焦点转向「宽信用验证」（社融）；存量房贷利率调整是银行息差与地产销售的平衡变量。",
+      vol: "波动预警：银行/地产/白酒（顺周期链）对政策窗口敏感。",
+      srcs: ["央行公告日历"] } },
+  { d: "10月下旬", today: false, time: "", title: "三季报密集披露 + 业绩预告高峰", type: "财报", imp: 3, status: "wait",
+    sub: "10/31 披露截止 · 算力链预告超预期比例最高",
+    ai: { fact: "A 股三季报 10/31 截止，中下旬为高峰。业绩预告超预期比例最高方向：算力硬件（光模块/PCB）。",
+      logic: "业绩验证决定主线持续性——本轮算力行情已从「预期驱动」切换为「业绩驱动」，三季报是成色检验。",
+      vol: "波动预警：光模块板块拥挤度 84 极端分位 + 财报密集披露，利好兑现节奏风险高；预约披露日历可在个股详情页查询。",
+      srcs: ["交易所披露日历", "业绩预告数据"] } },
+  { d: "10-28 周三", today: false, time: "凌晨", title: "FOMC 议息（跨市场联动）", type: "联动", imp: 3, status: "wait",
+    sub: "北向定价与人民币汇率渠道传导",
+    ai: { fact: "FOMC 决议北京时间 10/29 凌晨公布，A 股 9:30 开盘消化；传导渠道为人民币汇率与北向资金风险偏好。",
+      logic: "降息 → 人民币贬值压力缓解 → 北向回流概率上升；对外资重仓的核心资产（白酒/新能源）弹性大于题材股。",
+      vol: "波动预警：当前白酒板块正处「弱势失血+拥挤度极低」状态，若 FOMC 偏鸽触发外资回流，该方向弹性最大（反向逻辑）。",
+      srcs: ["Fed日历", "北向资金·实时"] } }
+];
+
+const FLASH = [
+  { t: "突发 · 半导体出口政策", d: "路透：美商务部拟放宽部分设备出口限制（仍未官宣）。影响评估：算力链 A+H 联动走强已 3 日，传闻落地前注意反复风险——标注「未经证实」", time: "2 小时前", src: "路透快讯" },
+  { t: "事件提醒 · CPI 今晚", d: "距 9 月 CPI 公布约 6 小时。期权定价 ±0.8% 波动，高 Beta 仓位敞口检查已推送至持仓用户", time: "3 小时前", src: "事件引擎" },
+  { t: "突发 · 中东局势", d: "油价短线拉升 1.2% 后回吐。影响评估：能源板块短线脉冲，但对大盘传导有限（历史相似情形持续性低）", time: "5 小时前", src: "彭博快讯" }
+];
+
+let selEvent = 0;
+
+function renderEvents() {
+  const m = MARKETS[curMarket];
+  document.getElementById("events-view-title").textContent = "事件日历与波动预警 · " + m.name;
+  /* 按日期分组 */
+  let html = "", lastDay = "";
+  m.events.forEach((e, i) => {
+    if (e.d !== lastDay) { html += `<div class="ev-day ${e.today ? "today" : ""}">${e.d}</div>`; lastDay = e.d; }
+    const dots = "●".repeat(e.imp) + "○".repeat(3 - e.imp);
+    const stCls = e.status === "near" ? "st-near" : "st-wait";
+    const stTxt = e.status === "near" ? "临近" : "待公布";
+    html += `
+      <div class="ev-item ${selEvent === i ? "selected" : ""}" onclick="selectEvent(${i})">
+        <span class="ev-time">${e.time}</span>
+        <div class="ev-main">
+          <div class="ev-title">${e.title}<span class="ev-type ${EV_T[e.type]}">${e.type}</span></div>
+          <div class="ev-sub">${e.sub}</div>
+        </div>
+        <span class="imp-dots" style="color:var(--warn)">${dots}</span>
+        <span class="ev-status ${stCls}">${stTxt}</span>
+      </div>`;
+  });
+  document.getElementById("events-timeline").innerHTML = html;
+
+  /* 右侧：AI 事件解读 */
+  const e = m.events[selEvent], ai = e.ai;
+  document.getElementById("event-detail").innerHTML = `
+    <div class="interpret" style="padding:16px">
+      <div class="ai-head"><span class="ai-badge">AI 事件解读</span><span class="time">${e.d} ${e.time} · 事件驱动引擎</span></div>
+      <div class="seg"><h4><span class="idx">1</span>事件事实与定价</h4><p>${ai.fact}</p><div class="src">${ai.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+      <div class="seg"><h4><span class="idx">2</span>影响逻辑</h4><p>${ai.logic}</p></div>
+      <div class="seg"><h4><span class="idx">3</span>波动预警与操作提示</h4><p>${ai.vol}</p></div>
+      <div class="disclaim">事件影响分析基于历史统计规律，不构成投资建议 · 突发事件信息滚动更新，注意时效性</div>
+    </div>`;
+
+  /* 右下：突发监测 */
+  document.getElementById("flash-feed").innerHTML = FLASH.map(f => `
+    <div class="flash-item">
+      <div class="fl-dot"></div>
+      <div class="fl-body">
+        <div class="fl-t">${f.t}</div>
+        <div class="fl-d">${f.d}</div>
+        <div class="fl-meta">${f.time} · 来源: ${f.src}</div>
+      </div>
+    </div>`).join("");
+}
+function selectEvent(i) { selEvent = i; renderEvents(); }
+
+/* ================= 问答 Demo ================= */
+const qaBank = [
+  { k: ["NVDA", "英伟达", "扫单", "call", "Call"], a: `<b>NVDA 今日 Call 扫单事实：</b><br>• $135 Call（10/17 到期）多笔 sweep 合计 $480 万，单日 Vol/OI 5.6×<br>• P/C Ratio 0.72，短期期权买方明显偏多<br><br><b>解读：</b>扫单方向为买入 Call，通常代表资金押注短期向上波动，且往往伴随正股资金流入（今日主力净流入 $2.8 亿，确有共振）。但注意现价 $132.5 已接近 $135 Call Wall，该行权价未平仓 5.8 万手，历史上对价格有压制倾向。<br><br><b>无法确认的部分：</b>扫单方身份（机构/大户/做市商对冲）无法从公开数据判断。<div class="src-line">数据来源：OPRA 期权链（实时）· 资金流 L2</div><div class="risk-line">⚠ 期权异动可能为投机或对冲行为，方向不代表确定性预期；以上不构成投资建议。</div>` },
+  { k: ["TSLA", "特斯拉", "期权墙", "墙"], a: `<b>TSLA 10/17 到期期权结构：</b><br>• Call Wall：<b>$260</b>（未平仓 4.4 万手）——上方压力参考<br>• Put Wall：<b>$240</b>（未平仓 4.2 万手）——下方支撑参考<br>• Max Pain：<b>$245</b>（当前价 $246.8，非常接近）<br>• 正 GEX 环境，做市商对冲行为倾向于压制波动、维持区间<br><br>本周五为月度到期日，历史上到期周价格有向 Max Pain 收敛的统计倾向，但仅为概率倾向而非确定事件。<div class="src-line">数据来源：OPRA 期权链 · 期权墙/Max Pain 为本地规则引擎计算</div><div class="risk-line">⚠ 统计参考位不构成价格预测与买卖依据。</div>` },
+  { k: ["大盘", "市场", "指数", "今天"], a: `<b>当前市场快照（美股）：</b><br>• 标普 500 +0.62%（5,762），连涨 4 日；涨跌家数 312 : 188，广度健康<br>• 恒指 +1.28%，上证 +0.85%，全球 risk-on 一致<br>• 结构特征：正 GEX 压制波动 + 科技领涨（费半 +2.1%）+ 防御板块（能源/医疗）资金流出<br><br><b>解读要点：</b>典型的风险偏好回升结构，但连涨 4 日后短线拥挤度开始积累，周五期权集中到期 + 周四 CPI 是主要波动事件。<div class="src-line">数据来源：行情接口·实时 · OPRA 期权链 · 板块资金流</div><div class="risk-line">⚠ 市场结构分析不构成对指数涨跌的预测。</div>` },
+  { k: ["降息", "美联储", "利率", "纳指"], a: `<b>利率与纳指的传导逻辑（基于历史规律）：</b><br>• 降息预期升温 → 贴现率下降 → 远期现金流占比高的成长股估值弹性更大，纳指通常相对受益<br>• 历史上预防式降息周期（如 2019）纳指此后 6 个月平均表现为正；但衰退式降息（如 2001）初期往往伴随下跌<br><br><b>当前状态（可溯源）：</b>市场定价 11 月降息 25bp 概率约 78%（CME FedWatch）；10Y 美债 4.21%。至于是「预防式」还是「衰退式」，取决于后续就业与通胀数据，<b>这一点无法确认</b>。<div class="src-line">数据来源：CME FedWatch · 美债收益率行情</div><div class="risk-line">⚠ 历史规律不代表未来表现，不构成投资建议。</div>` },
+  { k: ["明天", "涨", "跌", "预测", "该不该", "买", "卖", "推荐", "荐股"], a: `抱歉，这个问题我无法回答。<br><br>预测大盘/个股涨跌、给出买卖建议属于投资建议范畴，是本产品的合规红线——未来走势本质上不可预测，任何给出确定性判断的工具都应警惕。<br><br>我可以做的是：提供<b>可溯源的历史数据、当前市场结构分析（指数广度/期权结构/资金流/技术信号）与风险提示</b>，帮你建立自己的判断。比如可以问「当前纳指的市场结构怎么样」。<div class="risk-line">⚠ 严禁预测涨跌、荐股、承诺收益是本产品的硬性合规约束。</div>` }
+];
+
+function reply(q) {
+  const hit = qaBank.find(item => item.k.some(k => q.includes(k)));
+  if (hit) return hit.a;
+  return `这个问题超出了我目前的投研数据范围，<b>无法确认，无有效数据支撑</b>——我不会编造答案。<br><br>我擅长：大盘/市场结构分析、个股异动解读、期权结构（期权墙/Max Pain/GEX）、板块轮动分析、技术指标通俗解读。欢迎换个方式问我。<div class="risk-line">⚠ 无数据不输出是本产品的防幻觉硬约束。</div>`;
+}
+
+function sendChat() {
+  const input = document.getElementById("chat-input");
+  const q = input.value.trim();
+  if (!q) return;
+  const box = document.getElementById("chat-box");
+  box.insertAdjacentHTML("beforeend", `<div class="msg user">${q.replace(/</g, "&lt;")}</div>`);
+  box.insertAdjacentHTML("beforeend", `<div class="msg ai">${reply(q)}</div>`);
+  input.value = "";
+  box.scrollTop = box.scrollHeight;
+}
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+document.querySelectorAll(".suggest span").forEach(s => {
+  s.onclick = () => { document.getElementById("chat-input").value = s.textContent; sendChat(); };
+});
+
+/* ================= 初始化 ================= */
+switchMarket("us");
+</script>
+</body>
+</html>

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>供应链风控 Agent · 产品原型（脑暴 Demo）</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b26;
+    --bg-card: #1c2333;
+    --bg-hover: #232c42;
+    --border: #2a3350;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --text-faint: #5c6478;
+    --accent: #4f7cff;
+    --up: #ff5d5d;
+    --down: #2ecc8f;
+    --warn: #ffb648;
+    --info: #38bdf8;
+    --purple: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ===== 顶栏 ===== */
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 24px; height: 56px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .logo .dot { width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--info)); }
+  nav { display: flex; gap: 4px; }
+  nav .tab {
+    padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    color: var(--text-dim); font-weight: 500; transition: all .15s;
+  }
+  nav .tab:hover { color: var(--text); background: var(--bg-hover); }
+  nav .tab.active { color: #fff; background: var(--accent); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ent-selector {
+    display: flex; gap: 2px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 8px; padding: 2px;
+  }
+  .ent-selector span { padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-dim); transition: all .12s; white-space: nowrap; }
+  .ent-selector span.active { background: var(--accent); color: #fff; }
+  .scan-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .scan-status .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--down); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #4f7cff, #38bdf8); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+
+  .compliance {
+    text-align: center; font-size: 12px; color: var(--text-faint);
+    padding: 6px 24px; background: #12161f; border-bottom: 1px solid var(--border);
+  }
+
+  main { padding: 20px 24px 80px; max-width: 1440px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .grid-dashboard { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section-title h2::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--accent); }
+  .section-title .more { font-size: 12px; color: var(--text-dim); cursor: pointer; }
+
+  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+  /* ===== 数据源条 ===== */
+  .source-bar {
+    display: flex; gap: 26px; align-items: center; flex-wrap: wrap;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 18px; margin-bottom: 16px;
+  }
+  .mb-stat .k { font-size: 11px; color: var(--text-faint); margin-bottom: 3px; }
+  .mb-stat .v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mb-stat .v.up { color: var(--up); }
+  .mb-stat .v.warn { color: var(--warn); }
+  .mb-stat .v.ok { color: var(--down); }
+  .mb-divider { width: 1px; height: 30px; background: var(--border); }
+  .src-chip { display: flex; align-items: center; gap: 8px; margin-left: auto; font-size: 12px; color: var(--text-dim); background: rgba(79,124,255,.09); border: 1px solid rgba(79,124,255,.25); padding: 6px 12px; border-radius: 8px; }
+  .src-chip b { color: #7d9aff; }
+  .src-chip .okdot { width: 7px; height: 7px; border-radius: 50%; background: var(--down); }
+
+  /* ===== 风险表 ===== */
+  table.watchlist { width: 100%; border-collapse: collapse; }
+  .watchlist th {
+    text-align: left; font-size: 12px; font-weight: 500; color: var(--text-faint);
+    padding: 10px 12px; border-bottom: 1px solid var(--border); background: #141926; white-space: nowrap;
+  }
+  .watchlist td { padding: 12px; border-bottom: 1px solid #1f2637; white-space: nowrap; vertical-align: middle; }
+  .watchlist tr.row { cursor: pointer; transition: background .12s; }
+  .watchlist tr.row:hover { background: var(--bg-hover); }
+  .watchlist tr.row.selected { background: #1e2a4a; box-shadow: inset 3px 0 0 var(--accent); }
+  .sym { display: flex; flex-direction: column; gap: 2px; }
+  .sym .ticker { font-weight: 600; font-size: 14px; }
+  .sym .name { font-size: 12px; color: var(--text-dim); }
+  .num { font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 13px; }
+  .num b { color: var(--text); }
+  .num .over { color: var(--up); font-weight: 600; }
+
+  .lv-chip { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .lv4 { background: rgba(255,93,93,.16); color: var(--up); }
+  .lv3 { background: rgba(255,182,72,.16); color: var(--warn); }
+  .lv2 { background: rgba(56,189,248,.14); color: var(--info); }
+  .lv1 { background: rgba(92,100,120,.2); color: var(--text-dim); }
+
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; margin: 2px 2px; }
+  .tag.hot { background: rgba(255,93,93,.14); color: var(--up); }
+  .tag.warn { background: rgba(255,182,72,.14); color: var(--warn); }
+  .tag.info { background: rgba(56,189,248,.14); color: var(--info); }
+  .tag.ok { background: rgba(46,204,143,.14); color: var(--down); }
+
+  .sig-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; font-size: 12px; }
+  .sig-1 { background: rgba(92,100,120,.2); color: var(--text-dim); }
+  .sig-2 { background: rgba(56,189,248,.14); color: var(--info); }
+  .sig-3 { background: rgba(255,182,72,.16); color: var(--warn); font-weight: 600; }
+  .sig-4 { background: rgba(255,93,93,.16); color: var(--up); font-weight: 600; }
+  .sig-4::before { content: "●"; font-size: 8px; }
+
+  /* ===== 详情区 ===== */
+  .detail-head {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .detail-head .big-price { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail-meta { margin-left: auto; display: flex; gap: 20px; text-align: right; }
+  .detail-meta .m .k { font-size: 11px; color: var(--text-faint); }
+  .detail-meta .m .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .detail-body { display: grid; grid-template-columns: 1fr 280px; }
+
+  .interpret { padding: 16px 20px; }
+  .interpret .ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .interpret .ai-head .ai-badge {
+    background: linear-gradient(135deg, #4f7cff, #38bdf8); color: #fff;
+    padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  }
+  .interpret .ai-head .time { font-size: 12px; color: var(--text-faint); }
+  .seg { margin-bottom: 14px; }
+  .seg h4 { font-size: 13px; color: var(--accent); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+  .seg h4 .idx {
+    width: 16px; height: 16px; border-radius: 4px; background: rgba(79,124,255,.18);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #7d9aff;
+  }
+  .seg p { font-size: 13px; line-height: 1.7; color: #c3c9d8; }
+  .seg .src { margin-top: 4px; font-size: 11px; color: var(--text-faint); }
+  .seg .src span { background: #1a2132; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+  .interpret .disclaim { margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+
+  /* 供应商/链路面板 */
+  .side-panel { border-left: 1px solid var(--border); padding: 16px; background: #141926; }
+  .side-panel h4 { font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .opt-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #1f2637; font-size: 13px; }
+  .opt-row .k { color: var(--text-dim); }
+  .opt-row .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .opt-row .v.up { color: var(--up); }
+  .opt-row .v.warn { color: var(--warn); }
+  .opt-row .v.ok { color: var(--down); }
+
+  .score-4d { margin: 12px 0; }
+  .score-4d .sd { margin-bottom: 10px; }
+  .score-4d .sd .sl { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .score-4d .sd .sl b { font-variant-numeric: tabular-nums; }
+  .score-4d .track { height: 6px; border-radius: 3px; background: #232c42; overflow: hidden; }
+  .score-4d .fill { height: 100%; border-radius: 3px; }
+
+  .chain-viz { margin: 10px 0; }
+  .chain-node {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; font-size: 12px;
+  }
+  .chain-node.risk { border-color: rgba(255,93,93,.4); background: rgba(255,93,93,.06); }
+  .chain-node .cn-icon { font-size: 14px; }
+  .chain-node .cn-body { flex: 1; }
+  .chain-node .cn-t { font-weight: 600; margin-bottom: 1px; }
+  .chain-node .cn-d { color: var(--text-dim); font-size: 11px; }
+  .chain-arrow { text-align: center; color: var(--text-faint); font-size: 12px; line-height: 1; margin: 2px 0 6px; }
+
+  .panel-note { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--text-faint); background: rgba(56,189,248,.07); border: 1px solid rgba(56,189,248,.2); padding: 8px 10px; border-radius: 8px; }
+
+  /* ===== 预警流 ===== */
+  .alerts-feed { display: flex; flex-direction: column; }
+  .alert-item { padding: 12px 16px; border-bottom: 1px solid #1f2637; display: flex; gap: 10px; transition: background .12s; }
+  .alert-item:hover { background: var(--bg-hover); }
+  .alert-item .icon { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .icon.lv4 { background: rgba(255,93,93,.15); }
+  .icon.lv3 { background: rgba(255,182,72,.15); }
+  .icon.lv2 { background: rgba(56,189,248,.15); }
+  .icon.lv1 { background: rgba(92,100,120,.2); }
+  .alert-item .body .t { font-size: 13px; font-weight: 600; margin-bottom: 3px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .alert-item .body .d { font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .alert-item .body .meta { margin-top: 5px; font-size: 11px; color: var(--text-faint); display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert-item .body .meta .lvl-hot { color: var(--up); font-weight: 600; }
+
+  /* ===== 供应商视图 ===== */
+  .sup-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .sup-card {
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; cursor: pointer; transition: all .12s;
+  }
+  .sup-card:hover { background: var(--bg-hover); }
+  .sup-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .sup-card .sp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .sup-card .sp-name { font-size: 14px; font-weight: 600; }
+  .sup-card .sp-cat { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .grade-big { font-size: 18px; font-weight: 800; padding: 2px 12px; border-radius: 6px; }
+  .grade-S { background: rgba(46,204,143,.15); color: var(--down); }
+  .grade-A { background: rgba(56,189,248,.15); color: var(--info); }
+  .grade-B { background: rgba(255,182,72,.15); color: var(--warn); }
+  .grade-C { background: rgba(255,93,93,.15); color: var(--up); }
+
+  /* ===== 复盘 ===== */
+  .report-wrap { max-width: 860px; margin: 0 auto; }
+  .report-head { padding: 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #1a2135, var(--bg-panel)); }
+  .report-head h2 { font-size: 20px; margin-bottom: 6px; }
+  .report-head .sub { font-size: 13px; color: var(--text-dim); }
+  .report-sec { padding: 18px 24px; border-bottom: 1px solid #1f2637; }
+  .report-sec h3 { font-size: 14px; color: #7d9aff; margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .report-sec h3 .n { background: rgba(79,124,255,.16); width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .report-sec ul { list-style: none; }
+  .report-sec li { font-size: 13px; color: #c3c9d8; line-height: 1.9; padding-left: 14px; position: relative; }
+  .report-sec li::before { content: ""; position: absolute; left: 0; top: 11px; width: 5px; height: 5px; border-radius: 2px; background: var(--accent); }
+  .mini-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .mini-table th { font-size: 12px; color: var(--text-faint); text-align: left; padding: 6px 10px; background: #141926; border-bottom: 1px solid var(--border); }
+  .mini-table td { font-size: 13px; padding: 8px 10px; border-bottom: 1px solid #1f2637; }
+
+  /* ===== 问答 ===== */
+  .chat-wrap { max-width: 760px; margin: 0 auto; }
+  .chat-box { height: 480px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 82%; padding: 12px 16px; border-radius: 12px; font-size: 13px; line-height: 1.7; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.ai { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.ai .src-line { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+  .msg.ai .risk-line { margin-top: 6px; font-size: 11px; color: var(--warn); }
+  .chat-input { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); }
+  .chat-input input {
+    flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 14px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .chat-input input:focus { border-color: var(--accent); }
+  .chat-input button {
+    background: var(--accent); border: none; color: #fff; border-radius: 10px;
+    padding: 0 22px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .suggest { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 16px 14px; }
+  .suggest span {
+    font-size: 12px; color: var(--text-dim); background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; cursor: pointer;
+  }
+  .suggest span:hover { color: #7d9aff; border-color: var(--accent); }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(13,17,23,.92); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    text-align: center; padding: 8px; font-size: 11px; color: var(--text-faint); z-index: 99;
+  }
+
+  .legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2a3350; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .demo-note {
+    margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(79,124,255,.08); border: 1px dashed rgba(79,124,255,.35);
+    font-size: 12px; color: var(--text-dim); line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="dot"></div>供应链风控 Agent</div>
+  <nav>
+    <div class="tab active" data-view="dashboard">风控看板</div>
+    <div class="tab" data-view="suppliers">供应商评级</div>
+    <div class="tab" data-view="report">自动复盘</div>
+    <div class="tab" data-view="chat">知识库问答</div>
+  </nav>
+  <div class="header-right">
+    <div class="scan-status"><div class="pulse"></div>Agent 值守中 · 数据同步 5 分钟前</div>
+    <div class="ent-selector">
+      <span class="active" data-ent="a">精工制造</span><span data-ent="b">恒通贸易</span>
+    </div>
+    <div class="avatar">采</div>
+  </div>
+</header>
+
+<div class="compliance">本系统仅提供供应链风控辅助参考，不替代人工业务决策 · 高危风险与资金损耗结论请结合业务实际审慎评估</div>
+
+<main>
+
+  <!-- ============ 视图1：风控看板 ============ -->
+  <div class="view active" id="view-dashboard">
+    <div class="source-bar" id="source-bar"></div>
+
+    <div class="grid-dashboard">
+      <div>
+        <div class="section-title">
+          <h2 id="watchlist-title">风险清单 · 物料交期</h2>
+          <div class="legend">
+            <span class="sig-badge sig-2">即将到期</span>
+            <span class="sig-badge sig-3">大概率延期</span>
+            <span class="sig-badge sig-4">已超期</span>
+          </div>
+        </div>
+        <div class="card">
+          <table class="watchlist">
+            <thead>
+              <tr>
+                <th>物料 / 采购单</th><th>供应商</th><th>计划到货</th><th>延期概率</th><th>影响</th><th>风险等级</th><th>Agent 判定</th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body"></tbody>
+          </table>
+        </div>
+
+        <div class="section-title" style="margin-top:18px">
+          <h2 id="detail-title">AI 风险诊断</h2>
+          <div class="more">诊断归档 →</div>
+        </div>
+        <div class="card" id="detail-card"></div>
+
+        <div class="demo-note">
+          Demo 说明：点击风险行切换诊断详情，右上角切换企业（不同数据源接入方式）。数据均为演示假数据，展示产品形态：五段式结构化风险诊断（可溯源）、延期概率多维比对、连锁影响推演（订单→工序→物料）、四级风险分级、双校验机制（规则引擎 × AI 推理）。
+        </div>
+      </div>
+
+      <!-- 右栏预警 -->
+      <div>
+        <div class="section-title"><h2 id="alerts-title">实时分级预警</h2><div class="more">全部 12 条 →</div></div>
+        <div class="card alerts-feed" id="alerts-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图2：供应商评级 ============ -->
+  <div class="view" id="view-suppliers">
+    <div class="section-title">
+      <h2 id="sup-title">供应商风控评级 · 四维评分</h2>
+      <div class="legend"><span style="font-size:12px;color:var(--text-faint)">履约 · 质量 · 配合 · 稳定 四维加权 · S/A/B/C 自动分级 · 点击查看详情</span></div>
+    </div>
+    <div class="sup-grid" id="sup-grid"></div>
+    <div class="card" id="sup-detail"></div>
+    <div class="demo-note">
+      供应商评分基于历史采购单据自动计算（履约率/不良率/响应/稳定性），随每笔交易动态更新。C 级供应商触发替换建议；核心物料的单一供应商依赖度（&gt;60% 采购占比）单独预警。
+    </div>
+  </div>
+
+  <!-- ============ 视图3：自动复盘 ============ -->
+  <div class="view" id="view-report">
+    <div class="report-wrap">
+      <div class="card" id="report-card"></div>
+    </div>
+  </div>
+
+  <!-- ============ 视图4：知识库问答 ============ -->
+  <div class="view" id="view-chat">
+    <div class="chat-wrap">
+      <div class="card">
+        <div class="chat-box" id="chat-box">
+          <div class="msg ai">
+            你好，我是供应链知识库 Agent。我基于<b>本企业采购制度、SOP、异常处理案例、供应商履约数据</b>回答问题，所有回答标注来源；没有依据的问题我会直接说「无法确认」，不编造结论。<br><br>试着问我：
+          </div>
+        </div>
+        <div class="suggest">
+          <span>M201 芯片延期了怎么跟进？</span>
+          <span>华越供应商最近表现怎么样？</span>
+          <span>帮我直接停掉和铭达的合作</span>
+          <span>呆滞库存怎么处理？</span>
+        </div>
+        <div class="chat-input">
+          <input id="chat-input" placeholder="输入供应链问题…（我会先查单据与案例库，没有依据不回答）">
+          <button onclick="sendChat()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>本系统仅提供供应链风控辅助参考，不替代人工业务决策 · 供应链风控 Agent Prototype v0.1</footer>
+
+<script>
+/* ================================================================
+   假数据：两家企业（制造 / 贸易），不同数据接入方式
+================================================================ */
+const ENTERPRISES = {
+  a: {
+    name: "精工制造", srcLabel: "金蝶云 · API 直连（L2）", srcNote: "字段白名单只读同步 · 5 分钟增量",
+    bar: [
+      { k: "监控物料", v: "1,284 条" },
+      { k: "在途采购单", v: "86 张" },
+      { k: "准时到货率", v: "87.2%", cls: "warn" },
+      { k: "库存健康率", v: "91.5%", cls: "ok" },
+      { k: "呆滞资金占用", v: "¥38.6 万", cls: "up" },
+      { k: "本月避免损失", v: "¥52 万", cls: "ok" }
+    ],
+    risks: [
+      {
+        code: "PO-26098", mat: "M201 主控芯片", sup: "华越电子", eta: "已超期 3 天", prob: "已超期",
+        impact: "3 张生产工单 · 2 张客户订单", lv: 4, lvTxt: "已超期",
+        tags: ['<span class="tag hot">已超期</span>', '<span class="tag hot">停产风险</span>'],
+        sig: "4", sigText: "供应商答复延迟·切换备选窗口收窄",
+        head: [["风险等级", "四级 · 已超期"], ["延期概率", "已超期 3 天"], ["影响订单", "SO-1188 / SO-1192 等 2 张"], ["潜在损失", "¥8.4 万/周"]],
+        chain: [
+          { t: "客户订单 SO-1188", d: "汽车电子控制器 · 交付日 10-18 · 金额 ¥46 万", risk: true },
+          { t: "生产工单 MO-0331", d: "装配二线 · 计划开工 10-12 · 待料中", risk: true },
+          { t: "采购单 PO-26098", d: "M201 芯片 5,000 pcs · 计划到货 10-05", risk: true },
+          { t: "供应商 华越电子", d: "承诺 10-08 发货 · 今日仍未发货且未回复", risk: true }
+        ],
+        interp: {
+          fact: "采购单 PO-26098（M201 主控芯片 5,000 pcs）计划 10-05 到货，已超期 3 天。供应商华越电子 10-06 承诺 10-08 发货，截至今日 14:00 仍未发货，且催货消息连续 2 天未回复。当前库存可支撑生产至 10-11（4 天）。",
+          cause: "归因分析（依据该供应商近 12 个月履约记录）：华越电子历史准时率 62%，且此前 3 次超期均伴随「失联 2-3 天后给出新承诺日期」的模式——本次特征匹配度 87%，判定为真实交付风险而非沟通疏漏。行业侧佐证：M201 所在芯片品类当前市场交期普遍拉长 2-4 周（来源：品类交期指数）。",
+          spread: "连锁推演：MO-0331 装配二线 10-12 开工，若 10-11 前未到料则停线 → SO-1188（10-18 交付，违约金条款 5%）与 SO-1192 顺延风险 → 预估潜在损失 ¥8.4 万/周（停线 3 天 + 违约金）。切换备选供应商（深圳芯瑞）的样品验证窗口仅剩 2 天。",
+          advice: "建议动作（按优先级）：① 今日内升级至采购经理直接电话联系华越，要求书面确认确切发货时间；② 同步启动备选供应商深圳芯瑞的加急询价（历史合作过 2 次，来料合格率 99.1%）——M201 为通用料，可替代性确认中；③ 若明日 12:00 前无实质进展，建议下单备选并部分空运（增量成本约 ¥1.2 万，远低于停线损失）；④ 客户侧提前沟通 SO-1188 交付弹性。<b>以上为辅助参考，最终决策请业务负责人确认。</b>",
+          srcs: ["采购单 PO-26098", "华越电子履约档案", "库存台账", "推演引擎"]
+        }
+      },
+      {
+        code: "PO-26071", mat: "FPC 软排线 0.5mm", sup: "联捷互联", eta: "还剩 2 天", prob: "74%",
+        impact: "1 张生产工单", lv: 3, lvTxt: "大概率延期",
+        tags: ['<span class="tag warn">大概率延期</span>'],
+        sig: "3", sigText: "进度滞后·历史延期率41%",
+        head: [["风险等级", "三级 · 大概率延期"], ["延期概率", "74%"], ["影响工单", "MO-0342"], ["潜在损失", "¥1.8 万"]],
+        chain: [
+          { t: "生产工单 MO-0342", d: "装配一线 · 计划开工 10-13", risk: false },
+          { t: "采购单 PO-26071", d: "FPC 软排线 12,000 pcs · 计划 10-10 到货", risk: true },
+          { t: "供应商 联捷互联", d: "生产排期已确认 · 但近 3 次同类料平均晚 2.5 天", risk: true }
+        ],
+        interp: {
+          fact: "PO-26071 计划 10-10 到货（还剩 2 天）。供应商已确认排产，但其近 3 次同料号交付平均延迟 2.5 天，且本周一（10-05）的另两张采购单均延期 2 天交付。",
+          cause: "归因：该供应商近期产能紧张（同期承接某大客户加急单，可从其回复时效变长推断，置信度中）。历史延期率 41%。",
+          spread: "推演：若延迟 2-3 天，MO-0342 开工顺延，但该工单有 2 天缓冲期——预计影响可控，暂无订单级风险。持续观察。",
+          advice: "建议：① 今日电话确认实际排产位置，要求提供工序照片佐证；② 因有缓冲，暂不启动备选；③ 明日 16:00 若无明确发货通知则升级预警等级。",
+          srcs: ["采购单 PO-26071", "联捷互联履约档案", "推演引擎"]
+        }
+      },
+      {
+        code: "PO-26055", mat: "铝合金外壳 A7", sup: "精铸五金", eta: "还剩 6 天", prob: "31%",
+        impact: "低 · 有安全库存", lv: 2, lvTxt: "即将到期",
+        tags: ['<span class="tag info">即将到期</span>'],
+        sig: "2", sigText: "到货前3天·例行提醒",
+        head: [["风险等级", "二级 · 即将到期"], ["延期概率", "31%"], ["影响", "低（安全库存 8 天）"], ["潜在损失", "—"]],
+        chain: [
+          { t: "采购单 PO-26055", d: "铝合金外壳 3,000 件 · 计划 10-14 到货", risk: false },
+          { t: "供应商 精铸五金", d: "S 级供应商 · 近 12 个月准时率 98%", risk: false }
+        ],
+        interp: {
+          fact: "PO-26055 计划 10-14 到货（还剩 6 天）。供应商精铸五金为 S 级，近 12 个月准时率 98%，当前无异常信号。",
+          cause: "无风险归因，例行监控。",
+          spread: "库存可支撑 14 天，即使延期 5 天也无影响。",
+          advice: "例行动作：到货前 3 天自动提醒跟单员确认发货。",
+          srcs: ["采购单 PO-26055", "精铸五金履约档案"]
+        }
+      },
+      {
+        code: "PO-26042", mat: "包装纸箱 B 型", sup: "永发纸业", eta: "已超期 5 天", prob: "已超期",
+        impact: "低 · 呆滞风险反转", lv: 3, lvTxt: "超期+呆滞",
+        tags: ['<span class="tag warn">超期</span>', '<span class="tag warn">呆滞反转</span>'],
+        sig: "3", sigText: "订单取消后到货·呆滞预警",
+        head: [["风险等级", "三级 · 呆滞风险"], ["性质", "客户砍单后到货"], ["呆滞金额", "¥2.3 万"], ["建议", "协商转售/退货"]],
+        chain: [
+          { t: "采购单 PO-26042", d: "包装纸箱 8,000 套 · 已到货 6,000 套", risk: true },
+          { t: "关联客户订单 SO-1150", d: "已于 9-28 客户砍单 60% · 需求消失", risk: true }
+        ],
+        interp: {
+          fact: "客户 SO-1150 于 9-28 砍单 60%，但对应包装纸箱采购未及时取消，剩余 6,000 套（¥2.3 万）已于昨日到货入库——需求已消失，转为呆滞库存。",
+          cause: "归因：砍单信息未同步至采购执行环节——人工流程断点，属「计划失误」类根因（本季度同类问题第 2 次）。",
+          spread: "纸箱为定制印刷品，无法用于其他客户，呆滞概率 90%+。",
+          advice: "建议：① 与永发纸业协商剩余未生产部分（约 2,000 套）停止生产减少损失；② 已到货部分尝试折价转售同类包装需求企业；③ 流程改进：规则库已新增「客户砍单 → 自动关联未交付采购单」校验规则，未来将自动提醒采购取消。<b>根因已归档案例库。</b>",
+          srcs: ["采购单 PO-26042", "客户订单 SO-1150", "库存台账", "案例库 #SC-0207"]
+        }
+      }
+    ],
+    alerts: [
+      { lv: "4", lvTxt: "已超期", icon: "lv4", time: "14:02", t: "M201 芯片 · 停产倒计时 4 天", d: "华越电子超期 3 天且失联，库存仅撑 4 天，2 张客户订单受连锁影响，建议今日启动备选供应商", meta: ['<span class="lvl-hot">● 紧急</span>', "影响 SO-1188/SO-1192", "来源: 交期Agent+推演引擎"] },
+      { lv: "3", lvTxt: "呆滞预警", icon: "lv3", time: "11:30", t: "包装纸箱 B 型 · 砍单后到货 ¥2.3 万", d: "客户砍单未同步采购，6,000 套定制纸箱到货即呆滞，规则库已新增砍单联动校验", meta: ["根因: 计划失误", "来源: 库存Agent+案例库"] },
+      { lv: "3", lvTxt: "大概率延期", icon: "lv3", time: "09:45", t: "FPC 软排线 · 延期概率 74%", d: "联捷互联近期产能紧张，近 3 次同类料平均晚 2.5 天；工单有 2 天缓冲，暂可控", meta: ["持续跟踪", "来源: 交期Agent"] },
+      { lv: "2", lvTxt: "库存预警", icon: "lv2", time: "08:20", t: "连接器 J30 · 临界缺货", d: "消耗速率上升 18%，现有库存 9 天，低于安全库存线 12 天，建议提前补货", meta: ["补货建议已生成", "来源: 库存Agent"] },
+      { lv: "2", lvTxt: "资金预警", icon: "lv2", time: "昨日 17:00", t: "呆滞库存资金占用环比 +9%", d: "¥38.6 万呆滞资金，主要来自定制件与超量采购，明细见库存健康报告", meta: ["月度趋势", "来源: 库存Agent"] }
+    ],
+    suppliers: [
+      { name: "精铸五金", cat: "结构件 · 合作 3.2 年", grade: "S", score: 93, dims: [96, 92, 90, 94],
+        detail: "近 12 个月 47 张单准时率 98%，零质量事故，报价响应平均 4h。核心结构件主力供应商，采购占比 31%（健康区间）。" },
+      { name: "深圳芯瑞", cat: "电子元件 · 合作 1.8 年", grade: "A", score: 86, dims: [88, 99, 78, 82],
+        detail: "来料合格率 99.1%（全供应商第一），准时率 88%。响应速度略慢（平均 12h）。已建议作为 M201 芯片备选供应商。" },
+      { name: "联捷互联", cat: "FPC/线材 · 合作 2.5 年", grade: "B", score: 68, dims: [59, 90, 72, 74],
+        detail: "准时率降至 59%（近 3 月持续下滑），疑似产能紧张。质量稳定。建议：新订单询价引入第二供应商分单 30%。" },
+      { name: "华越电子", cat: "IC 芯片 · 合作 4 年", grade: "C", score: 44, dims: [62, 85, 38, 42],
+        detail: "准时率 62%，近 6 个月 3 次超期且均伴随失联；响应得分全供应商最低（38）。当前正超期影响 2 张订单。<b style='color:var(--up)'>替换预警已触发：M201 芯片建议切换备选，新订单暂停分配。</b>采购占比 22%，切换需 2-3 周过渡。" },
+      { name: "永发纸业", cat: "包装材料 · 合作 5 年", grade: "A", score: 82, dims: [84, 88, 80, 76],
+        detail: "包装类主力，准时率 84%，配合度高（支持小批量急单）。本次呆滞事件根因在采购流程而非供应商。" }
+    ],
+    report: {
+      title: "供应链风控日报 · 精工制造 · 2026-10-08",
+      sub: "由复盘 Agent 于 18:00 自动生成 · 已归档至企业知识库 · 全部数据可溯源（金蝶云直连）",
+      secs: [
+        { h: "周期指标汇总", items: [
+          "准时到货率 87.2%（环比 -2.1pp，主因华越超期）；订单按期交付率 95.8%；库存健康率 91.5%",
+          "在途采购单 86 张（高危 1 / 中危 3 / 低危 82）；待处理预警 5 条，已闭环 2 条",
+          "<b style='color:var(--down)'>本月避免损失 ¥52 万</b>：成功拦截 M201 断料风险（提前 4 天预警）+ 2 次超储采购拦截"
+        ]},
+        { h: "核心风险 TOP", table: [
+          ["M201 主控芯片", "已超期 3 天 · 停产倒计时 4 天", "华越失联", "紧急 · 备选启动建议"],
+          ["包装纸箱 B 型", "砍单后到货 ¥2.3 万呆滞", "砍单未同步采购", "已归档 · 规则库更新"],
+          ["FPC 软排线", "延期概率 74% · 有 2 天缓冲", "供应商产能紧张", "持续跟踪"],
+          ["连接器 J30", "临界缺货 · 低于安全线 3 天", "消耗速率 +18%", "补货建议已生成"]
+        ]},
+        { h: "根因复盘", items: [
+          "M201 超期：供应商 C 级风险积累期未被足够重视（6 个月内 3 次超期）——<b>已触发「C 级供应商核心物料依赖度」专项规则</b>",
+          "纸箱呆滞：砍单信息未流转至采购（本季度第 2 次同类问题）——已上线砍单联动校验规则",
+          "FPC 延期模式：联捷产能紧张早有信号（回复时效变长），已将其「响应时效」权重上调"
+        ]},
+        { h: "已处理闭环汇总", items: [
+          "昨日 3 条预警全部闭环：FPC 供应商电话确认（有效）、J30 补货单已下（有效）、呆滞纸箱转售询价（进行中）",
+          "预警有效率统计：本月 23 条预警中 17 条有效（74%）——「有效」定义为预警后实际发生风险或干预产生止损"
+        ]},
+        { h: "下期风控重点", items: [
+          "明日 12:00：M201 无实质进展则执行备选下单决策点（决策人：采购经理，Agent 已发送提醒）",
+          "本周：联捷新单分单询价（第二供应商 30%）；J30 补货到货跟踪",
+          "本月：华越供应商季度评审（是否终止），C 级供应商占比压降至 10% 以下"
+        ]}
+      ]
+    }
+  },
+
+  /* ==================== 恒通贸易（L1 Excel 接入示例） ==================== */
+  b: {
+    name: "恒通贸易", srcLabel: "Excel 导入 · 周度更新（L1）", srcNote: "模板化导入 · 手动补录 · 数据截止 10-06",
+    bar: [
+      { k: "监控 SKU", v: "326 条" },
+      { k: "在途订单", v: "41 张" },
+      { k: "准时到货率", v: "91.0%", cls: "ok" },
+      { k: "库存健康率", v: "88.4%", cls: "warn" },
+      { k: "呆滞资金占用", v: "¥12.4 万", cls: "up" },
+      { k: "本月避免损失", v: "¥6.8 万", cls: "ok" }
+    ],
+    risks: [
+      {
+        code: "PO-B118", mat: "圣诞系列装饰灯串", sup: "义乌耀星", eta: "还剩 9 天", prob: "52%",
+        impact: "亚马逊 Q4 备货 · 季节性硬窗口", lv: 3, lvTxt: "大概率延期",
+        tags: ['<span class="tag hot">季节窗口</span>', '<span class="tag warn">海运不定</span>'],
+        sig: "3", sigText: "海运交期波动·赶不上上架窗口",
+        head: [["风险等级", "三级 · 季节性风险"], ["延期概率", "52%"], ["硬窗口", "11-01 前入仓"], ["潜在损失", "错失 Q4 峰值 ¥18 万"]],
+        chain: [
+          { t: "亚马逊 Q4 备货计划", d: "目标 11-01 前入仓 3 仓 · 覆盖黑五/圣诞", risk: true },
+          { t: "采购单 PO-B118", d: "灯串 12,000 套 · 计划 10-17 到货", risk: true },
+          { t: "海运舱位", d: "供应商自定舱 · 近 4 周美西线平均延误 5-8 天", risk: true }
+        ],
+        interp: {
+          fact: "PO-B118 计划 10-17 到货，此后还需国内质检+发 FBA（约 12 天）才能赶 11-01 入仓窗口。该品类海运美西线近 4 周平均延误 5-8 天（数据来源：货代周报 + 本企业近 3 票实际记录）。",
+          cause: "归因：季节性出货高峰 + 美西线舱位紧张，非供应商生产问题（工厂端已确认 10-12 前完成生产）。延期概率 52% 综合了航线延误分布与缓冲天数。",
+          spread: "推演：若延误超 6 天则错过 11-01 入仓 → 黑五前无法上架 → 该 SKU 错失 Q4 峰值销售（预估 ¥18 万 GMV，毛利率 22%）。",
+          advice: "建议：① 改海运为美森快船（增量成本 ¥0.9 万，换取 5-7 天确定性）——净收益为正，建议执行；② 与供应商协商分批发货（先发 60% 赶窗口）；③ 亚马逊后台同步创建备用入库计划。<b>以上为辅助参考，最终决策请业务负责人确认。</b>",
+          srcs: ["采购单 PO-B118", "货代延误周报", "FBA 入仓时效记录", "推演引擎"]
+        }
+      },
+      {
+        code: "PO-B103", mat: "宠物自动喂食器", sup: "东莞贝宠", eta: "还剩 4 天", prob: "18%",
+        impact: "低 · 常规补货", lv: 2, lvTxt: "即将到期",
+        tags: ['<span class="tag info">例行监控</span>'],
+        sig: "2", sigText: "A 级供应商·正常跟踪",
+        head: [["风险等级", "二级 · 例行"], ["延期概率", "18%"], ["影响", "低"], ["潜在损失", "—"]],
+        chain: [
+          { t: "采购单 PO-B103", d: "喂食器 2,000 台 · 计划 10-12 到货", risk: false },
+          { t: "供应商 东莞贝宠", d: "A 级 · 准时率 92%", risk: false }
+        ],
+        interp: {
+          fact: "常规补货单，A 级供应商，无异常信号。",
+          cause: "无风险归因。",
+          spread: "库存 22 天，无连锁影响。",
+          advice: "例行：到货前 2 天提醒跟单确认。",
+          srcs: ["采购单 PO-B103", "贝宠履约档案"]
+        }
+      }
+    ],
+    alerts: [
+      { lv: "3", lvTxt: "季节风险", icon: "lv3", time: "10:15", t: "圣诞灯串 · 错峰 Q4 窗口风险", d: "海运延误概率 52%，若超 6 天则错过黑五上架窗口（预估损失 ¥18 万 GMV），建议改美森快船", meta: ["建议已生成", "来源: 交期Agent+海运数据"] },
+      { lv: "2", lvTxt: "呆滞预警", icon: "lv2", time: "昨日 16:40", t: "夏季滞销 SKU · 呆滞 ¥4.2 万", d: "防晒类 3 个 SKU 季节性滞销，建议折价清仓或转售，避免跨年占用资金", meta: ["清库建议已生成", "来源: 库存Agent"] },
+      { lv: "2", lvTxt: "数据提醒", icon: "lv2", time: "昨日 09:00", t: "Excel 数据已 2 天未更新", d: "L1 接入模式下数据时效依赖手动导入，建议每周一/周四固定更新（当前数据截止 10-06）", meta: ["数据质量提示", "来源: 数据校验Agent"] }
+    ],
+    suppliers: [
+      { name: "东莞贝宠", cat: "宠物用品 · 合作 2 年", grade: "A", score: 87, dims: [92, 88, 80, 85],
+        detail: "准时率 92%，质量稳定，小单响应快。宠物线主力供应商。" },
+      { name: "义乌耀星", cat: "节庆装饰 · 合作 3 年", grade: "B", score: 71, dims: [74, 78, 70, 66],
+        detail: "生产端准时率高（92%），但物流端依赖其自定舱位，整体交付时效波动大。建议：高时效要求订单改为自订舱或指定快船。" },
+      { name: "宁波海顺", cat: "家居收纳 · 合作 1.5 年", grade: "A", score: 83, dims: [85, 86, 82, 78],
+        detail: "整体稳定。上月 1 次包装错误已整改闭环（案例 #SC-0198）。" }
+    ],
+    report: {
+      title: "供应链风控日报 · 恒通贸易 · 2026-10-08",
+      sub: "由复盘 Agent 于 18:00 自动生成 · 数据截止 10-06（Excel 周度导入）· 全部结论可溯源",
+      secs: [
+        { h: "周期指标汇总", items: [
+          "准时到货率 91.0%；在途订单 41 张（季节性风险 1 / 常规 40）",
+          "<b style='color:var(--down)'>本月避免损失 ¥6.8 万</b>：夏季滞销 SKU 提前清仓决策 + 1 次超量采购拦截",
+          "数据时效提示：L1 接入模式下数据截止 10-06，时效性风险已在相关判定中降级标注"
+        ]},
+        { h: "核心风险 TOP", table: [
+          ["圣诞装饰灯串", "海运延误 52% · Q4 硬窗口", "航线紧张", "建议改快船"],
+          ["夏季防晒 3 SKU", "季节性呆滞 ¥4.2 万", "季节更替", "清仓建议已生成"]
+        ]},
+        { h: "根因复盘", items: [
+          "Q4 窗口风险为结构性问题：海运交期波动每年 Q4 重现——<b>建议明年 8 月前置备货节奏</b>（已归档为年度节奏规则）",
+          "L1 数据时效限制：本周灯串风险实际依赖货代周报侧数据补充——L2 接入（对接 ERP/货代 API）后可实时化"
+        ]},
+        { h: "已处理闭环汇总", items: [
+          "上周 4 条预警闭环 4 条：3 条例行确认 + 1 条清仓决策执行中",
+          "预警有效率：本月 9 条中 7 条有效（78%）"
+        ]},
+        { h: "下期风控重点", items: [
+          "明日：灯串改快船决策点（决策人：运营主管）",
+          "本周：防晒 SKU 清仓执行；周四 Excel 数据更新提醒已排程"
+        ]}
+      ]
+    }
+  }
+};
+
+/* ================================================================
+   渲染逻辑
+================================================================ */
+let curEnt = "a";
+let selRisk = 0;
+let selSup = 0;
+
+function lvColor(lv) { return lv >= 4 ? "var(--up)" : lv === 3 ? "var(--warn)" : "var(--info)"; }
+
+function renderSourceBar() {
+  const e = ENTERPRISES[curEnt];
+  document.getElementById("source-bar").innerHTML =
+    e.bar.map(s => `<div class="mb-stat"><div class="k">${s.k}</div><div class="v ${s.cls || ""}">${s.v}</div></div>`).join('<div class="mb-divider"></div>')
+    + `<div class="src-chip"><span class="okdot"></span>数据源：<b>${e.srcLabel}</b><span style="color:var(--text-faint)">${e.srcNote}</span></div>`;
+}
+
+function renderWatchlist() {
+  const e = ENTERPRISES[curEnt];
+  document.getElementById("watchlist-title").textContent = "风险清单 · 物料交期 · " + e.name;
+  document.getElementById("watchlist-body").innerHTML = e.risks.map((r, i) => `
+    <tr class="row ${selRisk === i ? "selected" : ""}" onclick="selectRisk(${i})">
+      <td><div class="sym"><span class="ticker">${r.mat}</span><span class="name">${r.code} · 计划到货 ${r.eta}</span></div></td>
+      <td class="num">${r.sup}</td>
+      <td class="num">${r.eta}</td>
+      <td class="num ${r.prob.includes("超期") ? "over" : ""}"><b>${r.prob}</b></td>
+      <td class="num">${r.impact}</td>
+      <td><span class="lv-chip lv${r.lv}">${r.lvTxt}</span></td>
+      <td><span class="sig-badge sig-${r.sig}">${r.sigText}</span></td>
+    </tr>`).join("");
+}
+
+function renderDetail() {
+  const e = ENTERPRISES[curEnt];
+  const r = e.risks[selRisk];
+  const it = r.interp;
+  document.getElementById("detail-title").textContent = "AI 风险诊断 · " + r.mat;
+
+  const chainHtml = r.chain.map((c, idx) => `
+    ${idx > 0 ? '<div class="chain-arrow">↓</div>' : ""}
+    <div class="chain-node ${c.risk ? "risk" : ""}">
+      <span class="cn-icon">${c.risk ? "⚠️" : "✅"}</span>
+      <div class="cn-body"><div class="cn-t">${c.t}</div><div class="cn-d">${c.d}</div></div>
+    </div>`).join("");
+
+  document.getElementById("detail-card").innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:2px">${r.code} · ${r.mat} · 供应商 ${r.sup}</div>
+        <span class="big-price" style="color:${lvColor(r.lv)}">${r.prob}</span>
+        <span style="font-size:13px;color:var(--text-dim);margin-left:6px">延期概率</span>
+        <span class="lv-chip lv${r.lv}" style="margin-left:12px;font-size:12px">${r.lvTxt}</span>
+      </div>
+      <div class="detail-meta">${r.head.map(x => `<div class="m"><div class="k">${x[0]}</div><div class="v">${x[1]}</div></div>`).join("")}</div>
+    </div>
+    <div class="detail-body">
+      <div class="interpret">
+        <div class="ai-head"><span class="ai-badge">AI 风险诊断</span><span class="time">实时生成 · 双校验通过（规则引擎 × AI 推理）</span></div>
+        <div class="seg"><h4><span class="idx">1</span>风险事实</h4><p>${it.fact}</p><div class="src">${it.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+        <div class="seg"><h4><span class="idx">2</span>归因分析</h4><p>${it.cause}</p></div>
+        <div class="seg"><h4><span class="idx">3</span>连锁推演</h4><p>${it.spread}</p></div>
+        <div class="seg"><h4><span class="idx">4</span>建议动作</h4><p>${it.advice}</p></div>
+        <div class="disclaim">以上诊断与建议为业务辅助参考，不替代人工决策 · 高危与资金相关结论请业务负责人审慎评估</div>
+      </div>
+      <div class="side-panel">
+        <h4>🔗 影响链路推演</h4>
+        <div class="chain-viz">${chainHtml}</div>
+        ${r.head.map(x => `<div class="opt-row"><span class="k">${x[0]}</span><span class="v ${x[1].includes("超期") || x[1].includes("¥") || x[1].includes("万") ? "up" : x[1].includes("低") ? "ok" : ""}">${x[1]}</span></div>`).join("")}
+        <div class="panel-note">影响链路依据「订单 × 采购单 × 库存」简化推演生成 · 数据同步于 ${e.srcLabel.includes("直连") ? "5 分钟前" : "10-06（L1 周度导入，时效性已降级标注）"}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAlerts() {
+  const e = ENTERPRISES[curEnt];
+  document.getElementById("alerts-feed").innerHTML = e.alerts.map(a => `
+    <div class="alert-item">
+      <div class="icon ${a.icon}">${a.lv === "4" ? "🔴" : a.lv === "3" ? "🟠" : a.lv === "2" ? "🟡" : "⚪"}</div>
+      <div class="body">
+        <div class="t">${a.t}<span class="lv-chip lv${a.lv}">${a.lvTxt}</span></div>
+        <div class="d">${a.d}</div>
+        <div class="meta">${a.meta.map(m => m.startsWith("<") ? m : `<span>${m}</span>`).join("")}<span>${a.time}</span></div>
+      </div>
+    </div>`).join("");
+}
+
+/* ===== 供应商视图 ===== */
+const DIM_NAMES = ["履约", "质量", "配合", "稳定"];
+function renderSuppliers() {
+  const e = ENTERPRISES[curEnt];
+  document.getElementById("sup-title").textContent = "供应商风控评级 · " + e.name;
+  document.getElementById("sup-grid").innerHTML = e.suppliers.map((s, i) => `
+    <div class="sup-card ${selSup === i ? "selected" : ""}" onclick="selectSup(${i})">
+      <div class="sp-head"><span class="sp-name">${s.name}</span><span class="grade-big grade-${s.grade}">${s.grade} · ${s.score}</span></div>
+      <div class="sp-cat">${s.cat}</div>
+      <div class="score-4d">
+        ${s.dims.map((d, di) => `
+        <div class="sd">
+          <div class="sl"><span>${DIM_NAMES[di]}</span><b style="color:${d >= 80 ? "var(--down)" : d >= 60 ? "var(--warn)" : "var(--up)"}">${d}</b></div>
+          <div class="track"><div class="fill" style="width:${d}%;background:${d >= 80 ? "linear-gradient(90deg,#1f8f74,#2ecc8f)" : d >= 60 ? "linear-gradient(90deg,#b07820,#ffb648)" : "linear-gradient(90deg,#b03a3a,#ff5d5d)"}"></div></div>
+        </div>`).join("")}
+      </div>
+    </div>`).join("");
+  const s = e.suppliers[Math.min(selSup, e.suppliers.length - 1)];
+  document.getElementById("sup-detail").innerHTML = `
+    <div class="interpret" style="padding:16px 20px">
+      <div class="ai-head"><span class="ai-badge">AI 供应商解读</span><span class="time">${s.name} · 评分随每笔交易动态更新</span></div>
+      <div class="seg"><h4><span class="idx">·</span>综合评估</h4><p>${s.detail}</p>
+      <div class="src"><span>履约档案</span><span>质量检验记录</span><span>沟通响应记录</span></div></div>
+      <div class="disclaim">评分为历史数据统计结果，供供应商管理辅助参考，不构成唯一合作决策依据</div>
+    </div>
+  `;
+}
+
+/* ===== 复盘 ===== */
+function renderReport() {
+  const r = ENTERPRISES[curEnt].report;
+  const secs = r.secs.map((sec, si) => {
+    if (sec.table) {
+      return `<div class="report-sec"><h3><span class="n">${si + 1}</span>${sec.h}</h3>
+        <table class="mini-table">
+          <tr><th>风险项</th><th>状态</th><th>根因</th><th>处置</th></tr>
+          ${sec.table.map(row => `<tr><td><b>${row[0]}</b></td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td></tr>`).join("")}
+        </table></div>`;
+    }
+    return `<div class="report-sec"><h3><span class="n">${si + 1}</span>${sec.h}</h3><ul>${sec.items.map(i => `<li>${i}</li>`).join("")}</ul></div>`;
+  }).join("");
+  document.getElementById("report-card").innerHTML = `
+    <div class="report-head"><h2>${r.title}</h2><div class="sub">${r.sub}</div></div>${secs}
+  `;
+}
+
+/* ===== 切换 ===== */
+function selectRisk(i) { selRisk = i; renderWatchlist(); renderDetail(); }
+function selectSup(i) { selSup = i; renderSuppliers(); }
+
+function switchEnt(mk) {
+  curEnt = mk; selRisk = 0; selSup = 0;
+  renderSourceBar(); renderWatchlist(); renderDetail(); renderAlerts(); renderSuppliers(); renderReport();
+}
+
+document.querySelectorAll(".ent-selector span").forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll(".ent-selector span").forEach(x => x.classList.remove("active"));
+    el.classList.add("active");
+    switchEnt(el.dataset.ent);
+  };
+});
+
+document.querySelectorAll("nav .tab").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll("nav .tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + t.dataset.view).classList.add("active");
+  };
+});
+
+/* ===== 问答 Demo ===== */
+const qaBank = [
+  { k: ["M201", "芯片", "延期", "跟进"], a: `<b>M201 主控芯片跟进指引：</b>（基于当前实时单据）<br>1️⃣ 现状：PO-26098 已超期 3 天，华越电子失联 2 天，库存撑 4 天，影响 2 张客户订单<br>2️⃣ 建议路径：今日电话升级催货 → 同步向备选深圳芯瑞询价（历史合格率 99.1%）→ 明日 12:00 无进展则备选下单+部分空运（增量成本 ¥1.2 万 vs 停线损失 ¥8.4 万/周）<br>3️⃣ 历史案例参考：#SC-0183（5 月华越超期处置记录，当时空运方案 3 天到料）<div class="src-line">来源：采购单 PO-26098 · 华越履约档案 · 案例库 #SC-0183</div><div class="risk-line">⚠ 以上为辅助参考，最终决策请采购经理确认。</div>` },
+  { k: ["华越", "供应商", "表现", "怎么样"], a: `<b>华越电子近期表现：</b>（近 12 个月数据）<br>• 综合评分 <b style="color:var(--up)">44 / C 级</b>（履约 62 · 质量 85 · 配合 38 · 稳定 42）<br>• 近 6 个月 3 次超期，均伴随「失联 2-3 天」模式；响应速度全供应商最低<br>• 当前正超期影响 2 张订单（M201 芯片），<b style="color:var(--up)">替换预警已触发</b>：新订单暂停分配，M201 建议切换深圳芯瑞<br>• 采购占比 22%，切换需 2-3 周过渡，建议季度评审确定终止方案<div class="src-line">来源：华越履约档案 · 实时采购数据</div>` },
+  { k: ["停掉", "终止", "停止", "直接"], a: `抱歉，我不能直接执行供应商终止操作。<br><br>本系统仅提供<b>风控监控与辅助建议</b>，不具备采购系统操作权限——供应商终止涉及合同违约条款、在途订单与库存过渡，需采购与法务评估后由业务负责人决策执行。<br><br>我能做的：① 生成华越的终止风险评估报告（在途单/库存/替代方案）；② 把你的意向记录到季度评审议题。<div class="risk-line">⚠ 「只做辅助、不做业务操作」是本产品的责任边界。</div>` },
+  { k: ["呆滞", "库存", "清仓", "处理"], a: `<b>呆滞库存处理建议：</b>（基于当前库存台账）<br>• 当前呆滞资金占用 <b>¥38.6 万</b>，环比 +9%<br>• 最大三项：定制包装纸箱 ¥2.3 万（客户砍单所致，建议折价转售）、夏季 SKU ¥4.2 万（季节性，建议 Q1 前清仓）、超量采购连接器 ¥1.8 万（建议与供应商协商退换）<br>• 通用物料类呆滞（¥3.1 万）可内部调剂至 B 产品线（匹配度 78%）<div class="src-line">来源：库存台账 · 呆滞分析规则引擎</div><div class="risk-line">⚠ 处理方案为辅助参考，需结合仓储与财务实际确认。</div>` },
+  { k: ["补货", "多少", "J30", "连接器"], a: `<b>J30 连接器补货建议：</b>（依据安全库存模型）<br>• 现状：库存可用 9 天，低于安全线 12 天；消耗速率近 4 周 +18%（B 产品线放量）<br>• 建议补货量：8,000 pcs（覆盖 6 周消耗 + 波动缓冲），参考历史单价 ¥1.42<br>• 供应商建议：现供应商联捷为 B 级且产能紧张，建议本次 30% 分单至第二供应商询价<br>• 时效要求：建议 3 天内下单（到货周期 10-14 天 + 当前消耗加速）<div class="src-line">来源：库存台账 · 消耗速率模型 · 安全库存规则</div>` }
+];
+
+function reply(q) {
+  const hit = qaBank.find(item => item.k.some(k => q.includes(k)));
+  if (hit) return hit.a;
+  return `这个问题我在本企业数据与知识库中<b>没有找到依据，无法确认</b>——我不会编造结论。<br><br>知识库现有内容：采购制度与 SOP、供应商履约档案、异常处理案例 207 条、库存台账。你可以：① 换个问法；② 上传相关制度文档或历史单据，我会自动解析入库后更新回答范围。<div class="risk-line">⚠ 无依据不输出是本产品的零幻觉硬约束。</div>`;
+}
+
+function sendChat() {
+  const input = document.getElementById("chat-input");
+  const q = input.value.trim();
+  if (!q) return;
+  const box = document.getElementById("chat-box");
+  box.insertAdjacentHTML("beforeend", `<div class="msg user">${q.replace(/</g, "&lt;")}</div>`);
+  box.insertAdjacentHTML("beforeend", `<div class="msg ai">${reply(q)}</div>`);
+  input.value = "";
+  box.scrollTop = box.scrollHeight;
+}
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+document.querySelectorAll(".suggest span").forEach(s => {
+  s.onclick = () => { document.getElementById("chat-input").value = s.textContent; sendChat(); };
+});
+
+/* ===== 初始化 ===== */
+switchEnt("a");
+</script>
+</body>
+</html>

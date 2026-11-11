@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工业预测性维护 Agent · 产品原型（脑暴 Demo）</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-panel: #161b26;
+    --bg-card: #1c2333;
+    --bg-hover: #232c42;
+    --border: #2a3350;
+    --text: #e6e9f0;
+    --text-dim: #8b93a7;
+    --text-faint: #5c6478;
+    --accent: #2dd4a7;
+    --up: #ff5d5d;
+    --down: #2ecc8f;
+    --warn: #ffb648;
+    --info: #38bdf8;
+    --purple: #a78bfa;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ===== 顶栏 ===== */
+  header {
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 24px; height: 56px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .logo .dot { width: 10px; height: 10px; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--info)); }
+  nav { display: flex; gap: 4px; }
+  nav .tab {
+    padding: 8px 16px; border-radius: 8px; cursor: pointer;
+    color: var(--text-dim); font-weight: 500; transition: all .15s;
+  }
+  nav .tab:hover { color: var(--text); background: var(--bg-hover); }
+  nav .tab.active { color: #062018; background: var(--accent); font-weight: 600; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ws-selector {
+    display: flex; gap: 2px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 8px; padding: 2px;
+  }
+  .ws-selector span { padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-dim); transition: all .12s; white-space: nowrap; }
+  .ws-selector span.active { background: var(--accent); color: #062018; font-weight: 600; }
+  .scan-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+  .scan-status .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #2dd4a7, #38bdf8); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #062018; }
+
+  .compliance {
+    text-align: center; font-size: 12px; color: var(--text-faint);
+    padding: 6px 24px; background: #12161f; border-bottom: 1px solid var(--border);
+  }
+
+  main { padding: 20px 24px 80px; max-width: 1440px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .grid-dashboard { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+
+  .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title h2 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .section-title h2::before { content: ""; width: 3px; height: 14px; border-radius: 2px; background: var(--accent); }
+  .section-title .more { font-size: 12px; color: var(--text-dim); cursor: pointer; }
+
+  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+  /* ===== 全厂统计条 ===== */
+  .stat-bar {
+    display: flex; gap: 26px; align-items: center; flex-wrap: wrap;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 13px 18px; margin-bottom: 16px;
+  }
+  .mb-stat .k { font-size: 11px; color: var(--text-faint); margin-bottom: 3px; }
+  .mb-stat .v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mb-stat .v.up { color: var(--up); }
+  .mb-stat .v.warn { color: var(--warn); }
+  .mb-stat .v.ok { color: var(--down); }
+  .mb-divider { width: 1px; height: 30px; background: var(--border); }
+  .value-highlight {
+    margin-left: auto; font-size: 12px; color: var(--down);
+    background: rgba(46,204,143,.1); border: 1px solid rgba(46,204,143,.25);
+    padding: 6px 12px; border-radius: 8px; line-height: 1.5;
+  }
+  .value-highlight b { font-size: 14px; }
+
+  /* ===== 设备表 ===== */
+  table.watchlist { width: 100%; border-collapse: collapse; }
+  .watchlist th {
+    text-align: left; font-size: 12px; font-weight: 500; color: var(--text-faint);
+    padding: 10px 12px; border-bottom: 1px solid var(--border); background: #141926; white-space: nowrap;
+  }
+  .watchlist td { padding: 12px; border-bottom: 1px solid #1f2637; white-space: nowrap; vertical-align: middle; }
+  .watchlist tr.row { cursor: pointer; transition: background .12s; }
+  .watchlist tr.row:hover { background: var(--bg-hover); }
+  .watchlist tr.row.selected { background: #16302a; box-shadow: inset 3px 0 0 var(--accent); }
+  .sym { display: flex; flex-direction: column; gap: 2px; }
+  .sym .ticker { font-weight: 600; font-size: 14px; }
+  .sym .name { font-size: 12px; color: var(--text-dim); }
+  .num { font-variant-numeric: tabular-nums; color: var(--text-dim); font-size: 13px; }
+  .num b { color: var(--text); }
+  .num .over { color: var(--up); font-weight: 600; }
+
+  .score-cell { display: flex; align-items: center; gap: 8px; }
+  .score-ring { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .score-ring .in { width: 24px; height: 24px; border-radius: 50%; background: var(--bg-panel); display: flex; align-items: center; justify-content: center; }
+
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 5px; font-size: 12px; font-weight: 500; margin: 2px 2px; }
+  .tag.hot { background: rgba(255,93,93,.14); color: var(--up); }
+  .tag.outflow { background: rgba(255,182,72,.14); color: var(--warn); }
+  .tag.catalyst { background: rgba(56,189,248,.14); color: var(--info); }
+  .tag.ok { background: rgba(46,204,143,.14); color: var(--down); }
+
+  .sig-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; font-size: 12px; }
+  .sig-1 { background: rgba(92,100,120,.2); color: var(--text-dim); }
+  .sig-2 { background: rgba(56,189,248,.14); color: var(--info); }
+  .sig-3 { background: rgba(255,93,93,.16); color: var(--up); font-weight: 600; }
+  .sig-3::before { content: "●"; font-size: 8px; }
+  .sig-warn { background: rgba(255,182,72,.16); color: var(--warn); font-weight: 600; }
+
+  /* ===== 详情区 ===== */
+  .detail-head {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .detail-head .big-price { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail-meta { margin-left: auto; display: flex; gap: 20px; text-align: right; }
+  .detail-meta .m .k { font-size: 11px; color: var(--text-faint); }
+  .detail-meta .m .v { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .detail-body { display: grid; grid-template-columns: 1fr 280px; }
+
+  .interpret { padding: 16px 20px; }
+  .interpret .ai-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .interpret .ai-head .ai-badge {
+    background: linear-gradient(135deg, #2dd4a7, #38bdf8); color: #062018;
+    padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+  }
+  .interpret .ai-head .time { font-size: 12px; color: var(--text-faint); }
+  .seg { margin-bottom: 14px; }
+  .seg h4 { font-size: 13px; color: var(--accent); margin-bottom: 4px; display: flex; gap: 6px; align-items: center; }
+  .seg h4 .idx {
+    width: 16px; height: 16px; border-radius: 4px; background: rgba(45,212,167,.16);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent);
+  }
+  .seg p { font-size: 13px; line-height: 1.7; color: #c3c9d8; }
+  .seg .src { margin-top: 4px; font-size: 11px; color: var(--text-faint); }
+  .seg .src span { background: #1a2132; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+  .interpret .disclaim { margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+
+  /* 传感器面板 */
+  .sensor-panel { border-left: 1px solid var(--border); padding: 16px; background: #141926; }
+  .sensor-panel h4 { font-size: 13px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .sensor-row { margin-bottom: 13px; }
+  .sensor-row .sl { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+  .sensor-row .sl .sv { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .sensor-row .sl .sv.over { color: var(--up); }
+  .sensor-row .track { height: 6px; border-radius: 3px; background: #232c42; position: relative; }
+  .sensor-row .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #1f8f74, var(--accent)); }
+  .sensor-row .fill.over { background: linear-gradient(90deg, #b03a3a, var(--up)); }
+  .sensor-row .th { position: absolute; top: -2px; width: 2px; height: 10px; background: var(--warn); border-radius: 1px; }
+  .trend { display: flex; gap: 3px; align-items: flex-end; height: 26px; margin-top: 5px; }
+  .trend i { flex: 1; background: #2a4a6b; border-radius: 1px; min-width: 3px; }
+  .trend i.hi { background: var(--up); }
+  .sensor-note { margin-top: 10px; font-size: 11px; line-height: 1.6; color: var(--text-faint); background: rgba(56,189,248,.07); border: 1px solid rgba(56,189,248,.2); padding: 8px 10px; border-radius: 8px; }
+  .opt-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #1f2637; font-size: 13px; }
+  .opt-row .k { color: var(--text-dim); }
+  .opt-row .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+  .opt-row .v.up { color: var(--up); }
+  .opt-row .v.warn { color: var(--warn); }
+  .opt-row .v.ok { color: var(--down); }
+
+  /* ===== 预警流 ===== */
+  .alerts-feed { display: flex; flex-direction: column; }
+  .alert-item { padding: 12px 16px; border-bottom: 1px solid #1f2637; display: flex; gap: 10px; transition: background .12s; }
+  .alert-item:hover { background: var(--bg-hover); }
+  .alert-item .icon { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  .icon.lv4 { background: rgba(255,93,93,.15); }
+  .icon.lv3 { background: rgba(255,182,72,.15); }
+  .icon.lv2 { background: rgba(56,189,248,.15); }
+  .icon.lv1 { background: rgba(92,100,120,.2); }
+  .alert-item .body .t { font-size: 13px; font-weight: 600; margin-bottom: 3px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .alert-item .body .d { font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .alert-item .body .meta { margin-top: 5px; font-size: 11px; color: var(--text-faint); display: flex; gap: 8px; flex-wrap: wrap; }
+  .alert-item .body .meta .lvl-hot { color: var(--up); font-weight: 600; }
+  .lv-chip { font-size: 10px; padding: 1px 7px; border-radius: 4px; font-weight: 600; }
+  .lv4-chip { background: rgba(255,93,93,.16); color: var(--up); }
+  .lv3-chip { background: rgba(255,182,72,.16); color: var(--warn); }
+  .lv2-chip { background: rgba(56,189,248,.14); color: var(--info); }
+
+  /* ===== 工单视图 ===== */
+  .orders-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .order-col { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; min-height: 300px; }
+  .order-col .oc-head { padding: 12px 14px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .oc-head .cnt { font-size: 11px; color: var(--text-faint); background: #1a2132; padding: 2px 8px; border-radius: 10px; }
+  .order-card { margin: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 11px 12px; cursor: pointer; transition: all .12s; }
+  .order-card:hover { border-color: var(--accent); }
+  .order-card .od-id { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .order-card .od-t { font-size: 12.5px; font-weight: 600; margin-bottom: 4px; line-height: 1.45; }
+  .order-card .od-d { font-size: 11px; color: var(--text-dim); line-height: 1.55; margin-bottom: 6px; }
+  .order-card .od-f { display: flex; gap: 6px; flex-wrap: wrap; font-size: 10px; }
+  .od-f .who { color: var(--text-dim); background: #1a2132; padding: 2px 7px; border-radius: 4px; }
+  .od-f .ddl { color: var(--warn); background: rgba(255,182,72,.1); padding: 2px 7px; border-radius: 4px; }
+  .od-f .ddl.safe { color: var(--down); background: rgba(46,204,143,.1); }
+  .progress-steps { display: flex; gap: 2px; margin-top: 8px; }
+  .progress-steps i { flex: 1; height: 3px; border-radius: 2px; background: #2a3350; }
+  .progress-steps i.done { background: var(--accent); }
+  .spare-strip {
+    display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+  }
+  .spare-chip { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 12px; flex: 1; min-width: 200px; }
+  .spare-chip .sk { color: var(--text-faint); font-size: 11px; margin-bottom: 3px; }
+  .spare-chip .sv { font-weight: 600; }
+  .spare-chip .sv.warn { color: var(--warn); }
+  .spare-chip .sv.ok { color: var(--down); }
+
+  /* ===== 复盘 ===== */
+  .report-wrap { max-width: 860px; margin: 0 auto; }
+  .report-head { padding: 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #17251f, var(--bg-panel)); }
+  .report-head h2 { font-size: 20px; margin-bottom: 6px; }
+  .report-head .sub { font-size: 13px; color: var(--text-dim); }
+  .report-sec { padding: 18px 24px; border-bottom: 1px solid #1f2637; }
+  .report-sec h3 { font-size: 14px; color: var(--accent); margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
+  .report-sec h3 .n { background: rgba(45,212,167,.14); width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .report-sec ul { list-style: none; }
+  .report-sec li { font-size: 13px; color: #c3c9d8; line-height: 1.9; padding-left: 14px; position: relative; }
+  .report-sec li::before { content: ""; position: absolute; left: 0; top: 11px; width: 5px; height: 5px; border-radius: 2px; background: var(--accent); }
+  .mini-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .mini-table th { font-size: 12px; color: var(--text-faint); text-align: left; padding: 6px 10px; background: #141926; border-bottom: 1px solid var(--border); }
+  .mini-table td { font-size: 13px; padding: 8px 10px; border-bottom: 1px solid #1f2637; }
+
+  /* ===== 问答 ===== */
+  .chat-wrap { max-width: 760px; margin: 0 auto; }
+  .chat-box { height: 480px; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 82%; padding: 12px 16px; border-radius: 12px; font-size: 13px; line-height: 1.7; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #062018; border-bottom-right-radius: 4px; font-weight: 500; }
+  .msg.ai { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.ai .src-line { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 11px; color: var(--text-faint); }
+  .msg.ai .risk-line { margin-top: 6px; font-size: 11px; color: var(--warn); }
+  .chat-input { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--border); }
+  .chat-input input {
+    flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 14px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .chat-input input:focus { border-color: var(--accent); }
+  .chat-input button {
+    background: var(--accent); border: none; color: #062018; border-radius: 10px;
+    padding: 0 22px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .suggest { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 16px 14px; }
+  .suggest span {
+    font-size: 12px; color: var(--text-dim); background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; cursor: pointer;
+  }
+  .suggest span:hover { color: var(--accent); border-color: var(--accent); }
+
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(13,17,23,.92); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    text-align: center; padding: 8px; font-size: 11px; color: var(--text-faint); z-index: 99;
+  }
+
+  .legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--text-dim); flex-wrap: wrap; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #2a3350; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .demo-note {
+    margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(45,212,167,.07); border: 1px dashed rgba(45,212,167,.35);
+    font-size: 12px; color: var(--text-dim); line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="dot"></div>设备运维 Agent</div>
+  <nav>
+    <div class="tab active" data-view="dashboard">设备监控</div>
+    <div class="tab" data-view="orders">预警工单</div>
+    <div class="tab" data-view="report">维保复盘</div>
+    <div class="tab" data-view="chat">知识库问答</div>
+  </nav>
+  <div class="header-right">
+    <div class="scan-status"><div class="pulse"></div>Agent 监控中 · 数据采集周期 10s</div>
+    <div class="ws-selector">
+      <span class="active" data-ws="a">一车间 · 注塑</span><span data-ws="b">二车间 · 机加工</span><span data-ws="c">三车间 · 公用工程</span>
+    </div>
+    <div class="avatar">维</div>
+  </div>
+</header>
+
+<div class="compliance">本系统仅提供设备运维辅助参考，所有维保建议需专业人员现场核验后执行 · 高危操作请遵循工厂安全规程</div>
+
+<main>
+
+  <!-- ============ 视图1：设备监控 ============ -->
+  <div class="view active" id="view-dashboard">
+    <div class="stat-bar" id="stat-bar"></div>
+
+    <div class="grid-dashboard">
+      <div>
+        <div class="section-title">
+          <h2 id="watchlist-title">设备台账 · 一车间</h2>
+          <div class="legend">
+            <span class="sig-badge sig-1">轻微</span>
+            <span class="sig-badge sig-2">一般预警</span>
+            <span class="sig-badge sig-warn">高危</span>
+            <span class="sig-badge sig-3">紧急</span>
+          </div>
+        </div>
+        <div class="card">
+          <table class="watchlist">
+            <thead>
+              <tr>
+                <th>设备</th><th>健康分</th><th>温度℃</th><th>振动mm/s</th><th>电流A</th><th>连续运行</th><th>状态</th><th>信号</th>
+              </tr>
+            </thead>
+            <tbody id="watchlist-body"></tbody>
+          </table>
+        </div>
+
+        <div class="section-title" style="margin-top:18px">
+          <h2 id="detail-title">AI 故障诊断</h2>
+          <div class="more">诊断归档 →</div>
+        </div>
+        <div class="card" id="detail-card"></div>
+
+        <div class="demo-note">
+          Demo 说明：点击上方设备行切换诊断详情，右上角切换车间全页面联动。数据均为演示假数据，展示产品形态：五段式结构化诊断（可溯源）、传感器阈值与 7 日趋势、RUL 剩余寿命、四级风险分级、双校验机制（时序模型 × 工业规则库）。
+        </div>
+      </div>
+
+      <!-- 右栏预警 -->
+      <div>
+        <div class="section-title"><h2 id="alerts-title">实时分级预警</h2><div class="more">全部 18 条 →</div></div>
+        <div class="card alerts-feed" id="alerts-feed"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 视图2：预警工单 ============ -->
+  <div class="view" id="view-orders">
+    <div class="section-title">
+      <h2>维保工单闭环 · 今日</h2>
+      <div class="legend"><span style="font-size:12px;color:var(--text-faint)">预警 → 派单 → 执行 → 核验 → 归档 · Agent 自动生成与跟进</span></div>
+    </div>
+    <div class="orders-grid" id="orders-grid"></div>
+
+    <div class="section-title" style="margin-top:18px">
+      <h2>备件智能提醒</h2>
+      <div class="more">备件台账管理 →</div>
+    </div>
+    <div class="spare-strip" id="spare-strip"></div>
+
+    <div class="demo-note">
+      工单由 Agent 按风险等级自动生成：高危/紧急故障自动指派并升级推送；处理完成后系统<b>自动核验</b>——对比修复前后传感器数据（振动/温度回落至阈值内），确认问题彻底解决才允许归档，未通过核验自动打回重处理。
+    </div>
+  </div>
+
+  <!-- ============ 视图3：维保复盘 ============ -->
+  <div class="view" id="view-report">
+    <div class="report-wrap">
+      <div class="card" id="report-card"></div>
+    </div>
+  </div>
+
+  <!-- ============ 视图4：知识库问答 ============ -->
+  <div class="view" id="view-chat">
+    <div class="chat-wrap">
+      <div class="card">
+        <div class="chat-box" id="chat-box">
+          <div class="msg ai">
+            你好，我是运维知识库 Agent。我基于<b>本厂设备手册、SOP 规范、故障案例库</b>回答运维问题，所有回答标注来源；知识库没有的内容我会直接说「无法确认」，绝不编造运维方案。<br><br>试着问我：
+          </div>
+        </div>
+        <div class="suggest">
+          <span>3号注塑机振动超标怎么排查？</span>
+          <span>空压机轴承多久更换？</span>
+          <span>帮我远程停掉2号水泵</span>
+          <span>液压油多久换一次？</span>
+        </div>
+        <div class="chat-input">
+          <input id="chat-input" placeholder="输入运维问题…（我会先查知识库，没有依据不回答）">
+          <button onclick="sendChat()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>本系统仅提供设备运维辅助参考，不替代人工专业判断 · 设备操作与高危维保需专业人员现场核验执行 · 工业预测性维护 Agent Prototype v0.1</footer>
+
+<script>
+/* ================================================================
+   假数据：三个车间
+   devices: name/code/type/score/temp/vib/cur/hours/tags/sig/sigText
+   sensors: 各指标 {val, th(阈值%), over} + trend 7 日
+================================================================ */
+const WORKSHOPS = {
+  a: {
+    name: "一车间 · 注塑", devices: [
+      {
+        code: "ZS-03", name: "海天注塑机 3号", type: "注塑 MA2500", score: 46, temp: 78, vib: 7.2, cur: 186, hours: "1,240h",
+        tags: ['<span class="tag hot">高危故障</span>', '<span class="tag outflow">趋势退化</span>'],
+        sig: "3", sigText: "轴承磨损·振动趋势陡升",
+        sensors: [
+          { n: "振动速度", v: "7.2 mm/s", pct: 92, over: true, th: 80, trend: [2.1, 2.3, 2.9, 3.8, 4.9, 6.1, 7.2] },
+          { n: "主轴承温度", v: "78 ℃", pct: 78, over: false, th: 85, trend: [61, 62, 64, 67, 71, 75, 78] },
+          { n: "液压泵电流", v: "186 A", pct: 74, over: false, th: 88, trend: [172, 174, 175, 178, 181, 184, 186] }
+        ],
+        info: [["设备型号", "海天 MA2500"], ["累计运行", "18,420 h"], ["上次大修", "2025-06-14"], ["RUL 剩余寿命", "约 12-18 天"], ["风险等级", "高危 · 三级"]],
+        interp: {
+          fact: "近 7 日振动速度从 2.1 mm/s 持续攀升至 7.2 mm/s（ISO 10816 C 区上限 4.5），今日 14:20 起超出报警阈值 6.8；主轴承温度同步从 61℃ 缓升至 78℃（升温与振动趋势相关系数 0.87）；液压泵电流偏高但未超标。",
+          predict: "时序模型预测：按当前退化速率，振动值将在 3-5 天内突破 D 区（8.0 mm/s 停机标准）；主轴承 RUL 评估 12-18 天。建议 72 小时内安排检修，避免非计划停机（该机台承担 A 产线 35% 产能，突发停机预估损失 ¥2.8 万/小时）。",
+          cause: "根因拆解（按置信度排序）：① 轴承磨损（置信度高）——振动频谱 1× 转频分量主导 + 温度同步缓升，符合轴承晚期磨损特征；② 液压油劣化（置信度中）——电流偏高提示泵内阻增大，建议同步取样化验确认；③ 地脚松动（已排除）——低频段无异常能量分布。",
+          risk: "风险分级：高危（三级）。影响范围：A 产线注塑工段；停机概率：若不干预，5 天内约 65%；产能损失预估：非计划停机 8-24h，¥22-67 万。",
+          advice: "维保建议（依据海天 MA 系列维护手册 §7.3 及案例库 #A-1023）：① 72h 内安排主轴轴承检查更换（备件：6208-2RS 深沟球轴承 ×2，库存 4 件充足）；② 同步取样液压油做颗粒度化验（ISO 4406 标准）；③ 检查完毕后空载试运行 30 分钟，振动值 <3.0 mm/s 方可复机。临时管控：降负载至 80% 运行可延缓退化速率约 40%。<b>以上为辅助参考，需专业人员现场核验执行。</b>",
+          srcs: ["传感时序·10s采样", "振动频谱分析", "海天MA维护手册", "案例库#A-1023"]
+        }
+      },
+      {
+        code: "ZS-07", name: "海天注塑机 7号", type: "注塑 MA1600", score: 68, temp: 66, vib: 3.6, cur: 142, hours: "860h",
+        tags: ['<span class="tag outflow">轻微退化</span>'],
+        sig: "2", sigText: "液压压力缓降·一般预警",
+        sensors: [
+          { n: "振动速度", v: "3.6 mm/s", pct: 46, over: false, th: 75, trend: [3.2, 3.3, 3.3, 3.4, 3.5, 3.5, 3.6] },
+          { n: "油温", v: "66 ℃", pct: 66, over: false, th: 85, trend: [60, 61, 62, 63, 64, 65, 66] },
+          { n: "液压泵电流", v: "142 A", pct: 57, over: false, th: 85, trend: [138, 139, 139, 140, 141, 141, 142] }
+        ],
+        info: [["设备型号", "海天 MA1600"], ["累计运行", "11,260 h"], ["上次保养", "2026-08-02"], ["RUL 剩余寿命", "约 45 天"], ["风险等级", "一般 · 二级"]],
+        interp: {
+          fact: "近 14 日液压系统工作压力缓慢下降 4.2%（148bar → 141.9bar），未触发阈值但趋势稳定下行；油温偏高 2-3℃，振动正常。",
+          predict: "压力衰减速率 0.3bar/天，预计 20-25 天后影响成型精度（产品克重偏差将超 ±1.5% 质检线）。RUL 评估：液压泵总成约 45 天。",
+          cause: "根因初判（置信度中）：① 液压油内泄增大——油温缓升 + 压力缓降的组合特征符合油泵内部磨损早期表现；② 需排查溢流阀设定漂移（置信度低）。",
+          risk: "风险分级：一般（二级）。暂无停机风险，但影响产品一致性，建议纳入下周维保计划。",
+          advice: "维保建议（依据SOP-HYD-12）：① 下周例行保养时检测液压油内泄率；② 校验溢流阀设定值（标准 150±2bar）；③ 暂无需更换部件，持续观察。已纳入周维保计划建议清单。",
+          srcs: ["传感时序·10s采样", "SOP-HYD-12"]
+        }
+      },
+      {
+        code: "ZS-01", name: "海天注塑机 1号", type: "注塑 MA2500", score: 88, temp: 58, vib: 2.2, cur: 168, hours: "1,102h",
+        tags: ['<span class="tag ok">健康运行</span>'],
+        sig: "1", sigText: "无有效信号",
+        sensors: [
+          { n: "振动速度", v: "2.2 mm/s", pct: 28, over: false, th: 75, trend: [2.1, 2.2, 2.1, 2.2, 2.2, 2.1, 2.2] },
+          { n: "油温", v: "58 ℃", pct: 58, over: false, th: 85, trend: [56, 57, 57, 58, 58, 58, 58] },
+          { n: "液压泵电流", v: "168 A", pct: 67, over: false, th: 88, trend: [165, 166, 167, 167, 168, 168, 168] }
+        ],
+        info: [["设备型号", "海天 MA2500"], ["累计运行", "15,890 h"], ["上次保养", "2026-09-18"], ["RUL 剩余寿命", "> 180 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "各传感器数据处于历史基线区间（±1σ 内），无趋势漂移，无周期性异常。近 30 日无异常记录。",
+          predict: "按当前运行负载评估，下次需要关注的时间窗口为 90 天后的大保养周期。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。无风险项。",
+          advice: "维持现行维保周期（500h 级保养）；建议作为同型号机台（3号）的振动基线参照对象。",
+          srcs: ["传感时序·10s采样"]
+        }
+      },
+      {
+        code: "M-02", name: "模具温控机 2号", type: "模温机 MK-6", score: 81, temp: 71, vib: 1.8, cur: 36, hours: "532h",
+        tags: ['<span class="tag ok">健康运行</span>'],
+        sig: "1", sigText: "无有效信号",
+        sensors: [
+          { n: "振动速度", v: "1.8 mm/s", pct: 22, over: false, th: 75, trend: [1.7, 1.8, 1.7, 1.8, 1.8, 1.8, 1.8] },
+          { n: "导热油温", v: "71 ℃", pct: 71, over: false, th: 88, trend: [70, 70, 71, 71, 71, 71, 71] },
+          { n: "泵电流", v: "36 A", pct: 45, over: false, th: 85, trend: [35, 36, 36, 36, 36, 36, 36] }
+        ],
+        info: [["设备型号", "模温机 MK-6"], ["累计运行", "6,340 h"], ["上次保养", "2026-09-02"], ["RUL 剩余寿命", "> 180 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "各指标正常。导热油温 71℃ 处于设定带（70±2℃）。",
+          predict: "无故障预判。导热油建议按 2000h 周期更换，当前累计 1,820h。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "180h 后到达导热油更换周期，已加入备件提醒（导热油 L-QB320 · 40L）。",
+          srcs: ["传感时序·10s采样", "SOP-MTC-04"]
+        }
+      }
+    ],
+    alerts: [
+      { lv: "3", lvTxt: "高危", time: "14:20", t: "ZS-03 注塑机 · 振动超限", d: "振动 7.2mm/s 突破报警阈值 6.8，7 日趋势陡升，轴承磨损特征显著，RUL 12-18 天", icon: "lv4", meta: ['<span class="lvl-hot">● 已生成工单 GD-1024</span>', "温度同步缓升", "来源: 传感时序+频谱"] },
+      { lv: "2", lvTxt: "一般", time: "11:35", t: "ZS-07 注塑机 · 压力趋势漂移", d: "液压压力 14 日缓降 4.2%，未超标但影响成型精度，建议纳入下周维保计划", icon: "lv3", meta: ["趋势预警", "来源: 传感时序"] },
+      { lv: "1", lvTxt: "轻微", time: "09:12", t: "M-02 模温机 · 导热油周期临近", d: "导热油累计 1,820h（更换周期 2000h），建议随下次保养更换", icon: "lv1", meta: ["寿命预警", "来源: 维保台账"] }
+    ],
+    orders: [
+      { id: "GD-1024", dev: "ZS-03 注塑机", t: "主轴轴承检查更换 + 液压油化验", lv: "高危", who: "王工（机修组）", ddl: "24h 内", st: "处理中", steps: 3 },
+      { id: "GD-1021", dev: "ZS-07 注塑机", t: "溢流阀校验 + 内泄率检测", lv: "一般", who: "待指派", ddl: "下周维保窗口", st: "待处理", steps: 1 },
+      { id: "GD-1019", dev: "M-02 模温机", t: "导热油更换（周期性）", lv: "例行", who: "李工（保养组）", ddl: "3 天内", st: "待处理", steps: 1 }
+    ],
+    spares: [
+      { k: "6208-2RS 轴承（ZS-03 用）", v: "库存 4 件 · 充足", cls: "ok" },
+      { k: "导热油 L-QB320（M-02 用）", v: "库存 15L · 低于安全库存(40L)", cls: "warn" },
+      { k: "液压油滤芯（通用）", v: "库存 6 件 · 充足", cls: "ok" }
+    ],
+    report: {
+      title: "设备运维日报 · 一车间（注塑）· 2026-10-08",
+      sub: "由维保复盘 Agent 于 18:00 自动生成 · 已归档至运维知识库 · 全部数据可溯源",
+      secs: [
+        { h: "车间运行快照", items: [
+          "设备开机率 92%（4 台中 1 台降载运行）、平均健康分 70.8（昨日 72.4，-1.6）",
+          "全天运行 74 台时，异常事件 3 起（高危 1 / 一般 1 / 轻微 1），同比上周日均 +1 起",
+          "<b style='color:var(--down)'>本月累计避免停机损失预估 ¥18.6 万</b>（3 次成功预警 × 平均避免 6.2h 非计划停机，详见价值统计说明）"
+        ]},
+        { h: "故障与预警统计", table: [
+          ["ZS-03 注塑机", "高危 · 轴承磨损", "RUL 12-18 天", "已生成工单"],
+          ["ZS-07 注塑机", "一般 · 压力漂移", "建议下周处理", "已入维保计划"],
+          ["M-02 模温机", "轻微 · 油品周期", "180h 后到期", "已提醒备件"]
+        ]},
+        { h: "维保工作汇总", items: [
+          "今日工单 3 张：处理中 1、待处理 2、无逾期",
+          "昨日工单核验：GD-1017（冷却塔风机异响）修复后振动回落至 2.1mm/s，核验通过已归档",
+          "备件消耗：本周轴承 ×2、滤芯 ×1；导热油库存低于安全线，已触发采购提醒"
+        ]},
+        { h: "根因复盘", items: [
+          "ZS-03 轴承磨损案例已归档（#B-1108）：该机台 18 个月未做轴承专项检查，超出手册建议周期",
+          "同类风险扫描：ZS-01 同型号机台运行时长相近，已自动加入下周振动专项检测清单",
+          "规则库更新：轴承磨损早期「温度缓升+振动 1× 频」特征规则权重已上调"
+        ]},
+        { h: "优化建议与下期风险", items: [
+          "维保周期优化建议：ZS 系列轴承检查周期由 12 个月调整为 8 个月（基于 3 号案例数据）",
+          "下期高风险设备清单：ZS-03（检修后复评）、空压站 2 号机（见三车间）",
+          "备件优化：导热油安全库存建议由 40L 上调至 60L，避免周期性缺货"
+        ]}
+      ]
+    }
+  },
+
+  /* ==================== 二车间 · 机加工 ==================== */
+  b: {
+    name: "二车间 · 机加工", devices: [
+      {
+        code: "CNC-05", name: "数控车床 5号", type: "CK6150", score: 52, temp: 72, vib: 6.1, cur: 42, hours: "1,680h",
+        tags: ['<span class="tag hot">潜在风险</span>', '<span class="tag outflow">趋势退化</span>'],
+        sig: "2", sigText: "主轴振动漂移·一般预警",
+        sensors: [
+          { n: "主轴振动", v: "6.1 mm/s", pct: 76, over: false, th: 85, trend: [3.8, 4.0, 4.3, 4.8, 5.3, 5.7, 6.1] },
+          { n: "主轴温升", v: "72 ℃", pct: 80, over: false, th: 88, trend: [58, 60, 62, 65, 68, 70, 72] },
+          { n: "伺服电流", v: "42 A", pct: 52, over: false, th: 85, trend: [39, 40, 40, 41, 41, 42, 42] }
+        ],
+        info: [["设备型号", "CK6150 数控车床"], ["累计运行", "9,870 h"], ["上次保养", "2026-07-22"], ["RUL 剩余寿命", "约 25-35 天"], ["风险等级", "一般偏高 · 二级"]],
+        interp: {
+          fact: "主轴振动 30 日内从 3.8 缓升至 6.1 mm/s（+61%），尚未突破报警阈值 7.0；主轴温升同步 +14℃；伺服电流平稳。振动能量集中在 2× 频段。",
+          predict: "按当前速率约 10-14 天触及报警阈值。主轴轴承 RUL 评估 25-35 天（负载相关）。",
+          cause: "2× 频段主导 + 温升同步 → 典型主轴轴承疲劳特征（置信度较高）；与 3 月案例库 #A-0981（同型号 CNC-02）特征相似度 82%。",
+          risk: "风险分级：一般偏高（二级）。影响 B 产线轴类加工工序；当前无需停机，但需纳入计划检修。",
+          advice: "维保建议（依据 CK6150 手册 §5 及案例 #A-0981）：① 下次换型间隙（≤7 天）安排主轴润滑油脂补充；② 精车工序建议暂转移至 CNC-03，避免精度漂移影响批量件；③ 复测激光干涉仪定位精度确认丝杠状态。<b>需专业人员现场核验执行。</b>",
+          srcs: ["传感时序·10s采样", "CK6150手册", "案例库#A-0981"]
+        }
+      },
+      {
+        code: "CNC-03", name: "数控车床 3号", type: "CK6150", score: 90, temp: 54, vib: 2.6, cur: 38, hours: "740h",
+        tags: ['<span class="tag ok">健康运行</span>'],
+        sig: "1", sigText: "无有效信号",
+        sensors: [
+          { n: "主轴振动", v: "2.6 mm/s", pct: 33, over: false, th: 85, trend: [2.5, 2.5, 2.6, 2.6, 2.5, 2.6, 2.6] },
+          { n: "主轴温升", v: "54 ℃", pct: 54, over: false, th: 88, trend: [53, 54, 54, 54, 54, 54, 54] },
+          { n: "伺服电流", v: "38 A", pct: 47, over: false, th: 85, trend: [37, 38, 38, 38, 38, 38, 38] }
+        ],
+        info: [["设备型号", "CK6150 数控车床"], ["累计运行", "8,120 h"], ["上次保养", "2026-09-28"], ["RUL 剩余寿命", "> 180 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "各项指标处于基线区间。精车工序承接自 CNC-05 后定位精度复测合格（±0.005mm）。",
+          predict: "无故障预判。承接 CNC-05 转移工序后负载将上升约 20%，已自动更新负载模型。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "维持现行维保周期；工序转移后连续 3 日加密监测频次（10s → 5s）。",
+          srcs: ["传感时序·10s采样"]
+        }
+      },
+      {
+        code: "MJ-01", name: "加工中心 1号", type: "VMC850", score: 76, temp: 63, vib: 3.9, cur: 51, hours: "1,214h",
+        tags: ['<span class="tag outflow">轻微退化</span>'],
+        sig: "1", sigText: "丝杠润滑周期临近",
+        sensors: [
+          { n: "主轴振动", v: "3.9 mm/s", pct: 49, over: false, th: 85, trend: [3.7, 3.8, 3.8, 3.8, 3.9, 3.9, 3.9] },
+          { n: "主轴温升", v: "63 ℃", pct: 63, over: false, th: 88, trend: [61, 62, 62, 63, 63, 63, 63] },
+          { n: "伺服电流", v: "51 A", pct: 64, over: false, th: 85, trend: [50, 50, 51, 51, 51, 51, 51] }
+        ],
+        info: [["设备型号", "VMC850 加工中心"], ["累计运行", "12,540 h"], ["上次保养", "2026-08-30"], ["RUL 剩余寿命", "> 120 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "指标平稳。Z 轴丝杠润滑累计 480h（周期 500h）。",
+          predict: "20h 后到达丝杠润滑周期。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "下次换型时执行 Z 轴丝杠润滑（SOP-MC-08）；锂基脂库存充足。",
+          srcs: ["传感时序·10s采样", "维保台账", "SOP-MC-08"]
+        }
+      },
+      {
+        code: "KY-02", name: "冷却循环泵 2号", type: "离心泵 ISG80", score: 38, temp: 69, vib: 8.4, cur: 28, hours: "2,410h",
+        tags: ['<span class="tag hot">紧急 · 已停机</span>'],
+        sig: "3", sigText: "叶轮断裂征兆·紧急处置",
+        sensors: [
+          { n: "振动速度", v: "8.4 mm/s", pct: 105, over: true, th: 80, trend: [3.1, 3.4, 4.1, 5.2, 6.8, 7.9, 8.4] },
+          { n: "电机温度", v: "69 ℃", pct: 69, over: false, th: 85, trend: [55, 57, 60, 63, 66, 68, 69] },
+          { n: "电机电流", v: "28 A", pct: 35, over: false, th: 85, trend: [26, 26, 27, 27, 28, 28, 28] }
+        ],
+        info: [["设备型号", "ISG80 离心泵"], ["累计运行", "7,910 h"], ["上次检修", "2026-03-11"], ["当前状态", "已安全停机 · 待检"], ["风险等级", "紧急 · 四级"]],
+        interp: {
+          fact: "今日 10:47 振动值骤升突破 D 区（8.4mm/s），Agent 于 10:47:31 触发紧急告警并推送；10:52 现场确认异响，运维主管手动执行安全停机，全程 5 分钟。频谱出现宽频噪声带。",
+          predict: "紧急停机处置及时，避免叶轮完全断裂导致的泵体损毁与冷却液泄漏（预估避免直接损失 ¥8.5 万 + 下游 CNC 冷却中断 12h）。",
+          cause: "根因初判（置信度高）：叶轮局部断裂或松动——宽频振动 + 电流未同步上升（排除负载因素）特征明确。最终以拆检结果为准。",
+          risk: "风险分级：紧急（四级）。已停机隔离。备机 KY-01 已自动联动启用，冷却回路压力正常。",
+          advice: "处置建议（依据 ISG 系列检修规程 §4）：① 拆检叶轮与口环间隙；② 检查泵轴弯曲度；③ 备件：ISG80 叶轮总成（库存 0，已触发紧急采购，ETA 36h）。案例已自动归档。<b>拆检作业需持证人员执行。</b>",
+          srcs: ["传感时序·10s采样", "频谱分析", "ISG检修规程", "实时处置记录"]
+        }
+      }
+    ],
+    alerts: [
+      { lv: "4", lvTxt: "紧急", time: "10:47", t: "KY-02 循环泵 · 振动骤升（已处置）", d: "振动 8.4mm/s 突破停机标准，紧急告警推送后 5 分钟内现场安全停机，避免叶轮断裂损毁", icon: "lv4", meta: ['<span class="lvl-hot">● 处置记录已归档</span>', "避免损失预估 ¥8.5 万", "来源: 传感时序+频谱"] },
+      { lv: "2", lvTxt: "一般", time: "13:05", t: "CNC-05 车床 · 主轴振动漂移", d: "30 日振动 +61%，轴承疲劳特征，建议 7 天内计划检修，精车工序暂转移 CNC-03", icon: "lv3", meta: ["已生成工单 GD-1031", "来源: 传感时序+案例匹配"] },
+      { lv: "1", lvTxt: "轻微", time: "08:40", t: "MJ-01 加工中心 · 丝杠润滑临近", d: "Z 轴丝杠润滑累计 480h（周期 500h），建议随下次换型执行", icon: "lv1", meta: ["寿命预警", "来源: 维保台账"] }
+    ],
+    orders: [
+      { id: "GD-1033", dev: "KY-02 循环泵", t: "叶轮拆检 + 总成更换（紧急采购中）", lv: "紧急", who: "王工（机修组）", ddl: "备件到货后 4h 内", st: "处理中", steps: 2 },
+      { id: "GD-1031", dev: "CNC-05 车床", t: "主轴润滑 + 精度复测", lv: "一般", who: "待指派", ddl: "7 天内", st: "待处理", steps: 1 },
+      { id: "GD-1029", dev: "KY-02 循环泵", t: "冷却回路切换至备机 KY-01（已完成）", lv: "紧急", who: "当班运维", ddl: "已执行", st: "已核验", steps: 4 }
+    ],
+    spares: [
+      { k: "ISG80 叶轮总成（KY-02 用）", v: "库存 0 · 紧急采购 ETA 36h", cls: "warn" },
+      { k: "主轴润滑脂（CNC 系列用）", v: "库存 5 支 · 充足", cls: "ok" },
+      { k: "机械密封件（泵类通用）", v: "库存 3 套 · 低于安全库存(5)", cls: "warn" }
+    ],
+    report: {
+      title: "设备运维日报 · 二车间（机加工）· 2026-10-08",
+      sub: "由维保复盘 Agent 于 18:00 自动生成 · 已归档至运维知识库 · 全部数据可溯源",
+      secs: [
+        { h: "车间运行快照", items: [
+          "设备开机率 88%（1 台停机检修 + 1 台降载）、平均健康分 64.0（昨日 71.5，-7.5，主因 KY-02 紧急事件）",
+          "全天运行 68 台时，异常事件 3 起（紧急 1 / 一般 1 / 轻微 1）",
+          "<b style='color:var(--down)'>今日成功避免 KY-02 叶轮断裂事故，直接损失避免 ¥8.5 万</b>——从告警到安全停机 5 分钟"
+        ]},
+        { h: "故障与预警统计", table: [
+          ["KY-02 循环泵", "紧急 · 叶轮损伤", "已停机待检", "备件采购中"],
+          ["CNC-05 车床", "一般 · 主轴轴承疲劳", "RUL 25-35 天", "已入计划检修"],
+          ["MJ-01 加工中心", "轻微 · 润滑周期", "20h 后到期", "已提醒"]
+        ]},
+        { h: "维保工作汇总", items: [
+          "今日工单 3 张：处理中 2、已核验 1；紧急工单平均响应 5 分钟（承诺 SLA 15 分钟）",
+          "冷却回路已切换备机 KY-01，CNC 冷却供应正常，无生产中断",
+          "备件：ISG80 叶轮紧急采购 ETA 36h；机械密封件低于安全库存已触发补货"
+        ]},
+        { h: "根因复盘", items: [
+          "KY-02 案例归档（#B-1109）：叶轮损伤早期（昨日 15:00 起）振动已有 1.4mm/s 阶跃，规则库已更新「阶跃 + 宽频」紧急特征权重",
+          "CNC-05 与 3 月 CNC-02 案例相似度 82%，维保知识库已关联推送同类处置 SOP",
+          "复盘发现：KY-02 上次检修为 7 个月前，叶轮口环间隙未测量——已加入标准检修 checklist"
+        ]},
+        { h: "优化建议与下期风险", items: [
+          "泵类设备巡检规则升级建议：振动阶跃（>1mm/s/日）从「一般」升级为「高危」触发条件",
+          "备件策略：叶轮类备件建议按同型号泵数量 ×0.5 配置安全库存",
+          "下期高风险清单：CNC-05（计划检修）、KY-02（修复后 30 天加密监测）"
+        ]}
+      ]
+    }
+  },
+
+  /* ==================== 三车间 · 公用工程 ==================== */
+  c: {
+    name: "三车间 · 公用工程", devices: [
+      {
+        code: "KYJ-2", name: "螺杆空压机 2号", type: "LG-22/8", score: 57, temp: 88, vib: 5.2, cur: 158, hours: "2,030h",
+        tags: ['<span class="tag outflow">潜在风险</span>', '<span class="tag hot">高温预警</span>'],
+        sig: "2", sigText: "排气高温+油路劣化",
+        sensors: [
+          { n: "振动速度", v: "5.2 mm/s", pct: 65, over: false, th: 80, trend: [4.2, 4.4, 4.5, 4.7, 4.9, 5.0, 5.2] },
+          { n: "排气温度", v: "88 ℃", pct: 88, over: false, th: 95, trend: [76, 78, 80, 82, 84, 86, 88] },
+          { n: "主电机电流", v: "158 A", pct: 79, over: false, th: 85, trend: [148, 150, 152, 154, 155, 157, 158] }
+        ],
+        info: [["设备型号", "LG-22/8 螺杆机"], ["累计运行", "23,410 h"], ["上次保养", "2026-06-08"], ["RUL 剩余寿命", "约 20-30 天"], ["风险等级", "一般偏高 · 二级"]],
+        interp: {
+          fact: "排气温度 14 日缓升 12℃（76→88℃），距高温跳机阈值 95℃ 仅 7℃；主电机电流同步 +6.8%；油滤压差 0.14MPa 接近更换标准 0.15MPa。",
+          predict: "按升温速率（0.86℃/天），预计 8 天后触发高温跳机。夏季环境温度 +10℃ 将加速该进程。",
+          cause: "根因初判（置信度高）：油路系统劣化——油分芯/油滤堵塞导致冷却效率下降，排气温度与压差同步上升特征明确；机油取样化验建议同步执行（运动粘度超标将佐证）。",
+          risk: "风险分级：一般偏高（二级）。高温跳机将导致全厂压缩空气供应波动，影响一、二车间气动设备。",
+          advice: "维保建议（依据 LG 系列保养手册 §6.2）：① 48h 内更换油滤 + 油分芯（备件充足）；② 机油取样化验，粘度超标则整换（4000h 已超周期 320h）；③ 检查冷却器翅片积灰（压缩空气反吹）。夏季前建议对 1、2 号机做冷却系统专项保养。<b>需专业人员现场核验执行。</b>",
+          srcs: ["传感时序·10s采样", "LG保养手册", "油路模型"]
+        }
+      },
+      {
+        code: "KYJ-1", name: "螺杆空压机 1号", type: "LG-22/8", score: 84, temp: 74, vib: 3.4, cur: 146, hours: "1,560h",
+        tags: ['<span class="tag ok">健康运行</span>'],
+        sig: "1", sigText: "无有效信号",
+        sensors: [
+          { n: "振动速度", v: "3.4 mm/s", pct: 43, over: false, th: 80, trend: [3.3, 3.3, 3.4, 3.4, 3.4, 3.4, 3.4] },
+          { n: "排气温度", v: "74 ℃", pct: 74, over: false, th: 95, trend: [72, 73, 73, 74, 74, 74, 74] },
+          { n: "主电机电流", v: "146 A", pct: 73, over: false, th: 85, trend: [145, 146, 146, 146, 146, 146, 146] }
+        ],
+        info: [["设备型号", "LG-22/8 螺杆机"], ["累计运行", "21,050 h"], ["上次保养", "2026-08-15"], ["RUL 剩余寿命", "> 150 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "各指标基线平稳。与 2 号机同型号，当前作为其备份冗余。",
+          predict: "无故障预判。若 2 号机检修停机，本机承担全负荷运行，届时加密监测。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "维持现行保养周期；2 号机检修期间自动切换为主机并加密数据采集（10s → 5s）。",
+          srcs: ["传感时序·10s采样"]
+        }
+      },
+      {
+        code: "FJ-3", name: "冷却塔风机 3号", type: "横流式", score: 79, temp: 46, vib: 3.0, cur: 22, hours: "1,020h",
+        tags: ['<span class="tag ok">健康运行</span>'],
+        sig: "1", sigText: "无有效信号",
+        sensors: [
+          { n: "振动速度", v: "3.0 mm/s", pct: 38, over: false, th: 80, trend: [2.8, 2.9, 2.9, 3.0, 3.0, 3.0, 3.0] },
+          { n: "电机温度", v: "46 ℃", pct: 46, over: false, th: 85, trend: [44, 45, 45, 46, 46, 46, 46] },
+          { n: "电机电流", v: "22 A", pct: 55, over: false, th: 85, trend: [21, 22, 22, 22, 22, 22, 22] }
+        ],
+        info: [["设备型号", "横流冷却塔"], ["累计运行", "13,870 h"], ["上次检修", "2026-09-30"], ["RUL 剩余寿命", "> 180 天"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "10-02 异响工单（GD-1017）修复后振动回落至 3.0mm/s，连续 6 日稳定，核验通过。",
+          predict: "无故障预判。皮带张紧度建议 30 天复查。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "修复案例已归档（#B-1092：皮带轮找正偏差）；30 天后复查皮带张紧度已加入提醒。",
+          srcs: ["传感时序·10s采样", "案例库#B-1092"]
+        }
+      },
+      {
+        code: "BS-1", name: "消防泵 1号", type: "XBD 型", score: 95, temp: 32, vib: 1.2, cur: 0, hours: "0h（备用）",
+        tags: ['<span class="tag catalyst">备用巡检</span>'],
+        sig: "1", sigText: "月度试运行正常",
+        sensors: [
+          { n: "振动速度", v: "1.2 mm/s", pct: 15, over: false, th: 80, trend: [1.1, 1.2, 1.1, 1.2, 1.2, 1.1, 1.2] },
+          { n: "绕组温度", v: "32 ℃", pct: 32, over: false, th: 85, trend: [31, 32, 32, 32, 32, 32, 32] },
+          { n: "绝缘监测", v: ">100 MΩ", pct: 12, over: false, th: 85, trend: [100, 100, 100, 100, 100, 100, 100] }
+        ],
+        info: [["设备型号", "XBD 消防泵"], ["累计运行", "2,140 h"], ["上次试运行", "2026-10-01"], ["下次试运行", "2026-11-01"], ["风险等级", "正常 · 一级"]],
+        interp: {
+          fact: "备用状态。10-01 月度试运行 15 分钟：启动正常、振动 1.2mm/s、绝缘 >100MΩ，全部达标（消防规程要求）。",
+          predict: "无故障预判。",
+          cause: "无异常需要诊断。",
+          risk: "风险分级：正常（一级）。",
+          advice: "维持月度试运行节奏；试运行记录已自动归档，满足消防台账留存要求（可追溯导出）。",
+          srcs: ["试运行记录", "消防维保规程"]
+        }
+      }
+    ],
+    alerts: [
+      { lv: "2", lvTxt: "一般", time: "15:22", t: "KYJ-2 空压机 · 排气高温趋势", d: "排气温度 88℃ 距跳机阈值 7℃，油路劣化特征，预计 8 天后触发高温跳机，建议 48h 内保养", icon: "lv3", meta: ["已生成工单 GD-1036", "影响：全厂气源", "来源: 传感时序+油路模型"] },
+      { lv: "1", lvTxt: "轻微", time: "09:30", t: "KYJ-2 空压机 · 机油超周期", d: "机油累计 4,320h（更换周期 4,000h），已超期，建议随本次保养整换", icon: "lv1", meta: ["寿命预警", "来源: 维保台账"] },
+      { lv: "1", lvTxt: "正常", time: "08:15", t: "FJ-3 冷却塔 · 修复后核验通过", d: "10-02 异响修复后连续 6 日振动稳定 3.0mm/s，工单 GD-1017 核验通过自动归档", icon: "lv1", meta: ["核验记录", "来源: 修复前后数据对比"] }
+    ],
+    orders: [
+      { id: "GD-1036", dev: "KYJ-2 空压机", t: "油滤/油分芯更换 + 机油化验", lv: "一般", who: "张工（动力组）", ddl: "48h 内", st: "处理中", steps: 2 },
+      { id: "GD-1035", dev: "KYJ-2 空压机", t: "冷却器翅片反吹清理", lv: "例行", who: "待指派", ddl: "随本次保养", st: "待处理", steps: 1 },
+      { id: "GD-1017", dev: "FJ-3 冷却塔", t: "皮带轮找正修复", lv: "一般", who: "王工", ddl: "已完成", st: "已归档", steps: 4 },
+      { id: "GD-1012", dev: "BS-1 消防泵", t: "月度试运行 + 台账归档", lv: "例行", who: "当班运维", ddl: "已完成", st: "已归档", steps: 4 }
+    ],
+    spares: [
+      { k: "油分芯（KYJ 系列用）", v: "库存 2 件 · 刚好满足本次", cls: "warn" },
+      { k: "空压机油 46#", v: "库存 80L · 充足", cls: "ok" },
+      { k: "冷却塔皮带（FJ 系列）", v: "库存 4 条 · 充足", cls: "ok" }
+    ],
+    report: {
+      title: "设备运维日报 · 三车间（公用工程）· 2026-10-08",
+      sub: "由维保复盘 Agent 于 18:00 自动生成 · 已归档至运维知识库 · 全部数据可溯源",
+      secs: [
+        { h: "车间运行快照", items: [
+          "设备开机率 75%（消防泵按规备用）、平均健康分 78.8",
+          "压缩空气系统：2 号机高温趋势中，1 号机冗余就绪；全厂气源压力目前稳定 0.72MPa",
+          "消防系统：月度试运行达标，台账已归档（满足消防监管留存要求）"
+        ]},
+        { h: "故障与预警统计", table: [
+          ["KYJ-2 空压机", "一般 · 油路劣化", "8 天后或跳机", "48h 内保养"],
+          ["KYJ-2 空压机", "轻微 · 机油超期", "超 320h", "随保养整换"],
+          ["FJ-3 冷却塔", "已闭环 · 修复核验通过", "振动稳定 6 日", "已归档"]
+        ]},
+        { h: "维保工作汇总", items: [
+          "今日工单 2 张新增、2 张历史归档；GD-1036（空压机油路保养）处理中",
+          "GD-1017（冷却塔修复）通过自动核验：修复前后振动对比 7.1 → 3.0mm/s，回落至基线",
+          "备件：油分芯库存仅够本次使用，已触发补货提醒"
+        ]},
+        { h: "根因复盘", items: [
+          "KYJ-2 油路劣化与夏季环温耦合——规则库已新增「环境温度 + 排气温度」双因子预警",
+          "FJ-3 案例闭环（#B-1092）：皮带轮找正偏差为安装工艺问题，同类 3 台设备已安排专项复查",
+          "消防泵月度试运行台账自动归档，替代原纸质记录流程"
+        ]},
+        { h: "优化建议与下期风险", items: [
+          "维保周期优化：KYJ 系列油路保养周期由 4,000h 调整为 3,500h（基于 2 号机数据）",
+          "能耗联动提示（V1.1 预告）：2 号机电流 +6.8% 意味着电耗上升，油路保养预计可回收 3-5% 能效",
+          "下期重点：KYJ-2 保养后复评；夏季高温季前全系统冷却专项（列入周计划）"
+        ]}
+      ]
+    }
+  }
+};
+
+/* ================================================================
+   渲染逻辑
+================================================================ */
+let curWs = "a";
+let selDev = 0;
+
+function scoreColor(s) { return s >= 80 ? "var(--down)" : s >= 60 ? "var(--info)" : s >= 45 ? "var(--warn)" : "var(--up)"; }
+
+function renderStatBar() {
+  const w = WORKSHOPS[curWs];
+  const devs = w.devices;
+  const avg = Math.round(devs.reduce((s, d) => s + d.score, 0) / devs.length);
+  const abnormal = devs.filter(d => d.score < 75).length;
+  const high = devs.filter(d => d.score < 55).length;
+  document.getElementById("stat-bar").innerHTML = `
+    <div class="mb-stat"><div class="k">在线设备</div><div class="v">${devs.length} / ${devs.length}</div></div>
+    <div class="mb-divider"></div>
+    <div class="mb-stat"><div class="k">车间平均健康分</div><div class="v" style="color:${scoreColor(avg)}">${avg}</div></div>
+    <div class="mb-divider"></div>
+    <div class="mb-stat"><div class="k">异常设备</div><div class="v warn">${abnormal}</div></div>
+    <div class="mb-divider"></div>
+    <div class="mb-stat"><div class="k">高危/紧急</div><div class="v up">${high}</div></div>
+    <div class="mb-divider"></div>
+    <div class="mb-stat"><div class="k">今日预警</div><div class="v">${w.alerts.length} 起</div></div>
+    <div class="mb-divider"></div>
+    <div class="mb-stat"><div class="k">待处理工单</div><div class="v warn">${w.orders.filter(o => o.st !== "已归档" && o.st !== "已核验").length}</div></div>
+    <div class="value-highlight">本月避免停机损失预估 <b>¥18.6 万</b>（预警回溯统计口径）</div>
+  `;
+}
+
+function renderWatchlist() {
+  const w = WORKSHOPS[curWs];
+  document.getElementById("watchlist-title").textContent = "设备台账 · " + w.name;
+  document.getElementById("watchlist-body").innerHTML = w.devices.map((d, i) => {
+    const tempCls = d.temp >= 85 ? "over" : "", vibCls = d.vib >= 6.5 ? "over" : "";
+    return `
+    <tr class="row ${selDev === i ? "selected" : ""}" onclick="selectDevice(${i})">
+      <td><div class="sym"><span class="ticker">${d.code}</span><span class="name">${d.name} · ${d.type}</span></div></td>
+      <td>
+        <div class="score-cell">
+          <div class="score-ring" style="background:conic-gradient(${scoreColor(d.score)} calc(${d.score} * 1%), #232c42 0)"><div class="in" style="color:${scoreColor(d.score)}">${d.score}</div></div>
+        </div>
+      </td>
+      <td class="num ${tempCls ? "over" : ""}"><b>${d.temp}</b></td>
+      <td class="num ${vibCls ? "over" : ""}"><b>${d.vib.toFixed(1)}</b></td>
+      <td class="num">${d.cur || "—"}</td>
+      <td class="num">${d.hours}</td>
+      <td>${d.tags.join(" ")}</td>
+      <td><span class="sig-badge ${d.sig === "3" ? "sig-3" : d.sig === "2" ? "sig-warn" : "sig-1"}">${d.sigText}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function renderDetail() {
+  const w = WORKSHOPS[curWs];
+  const d = w.devices[selDev];
+  const it = d.interp;
+  document.getElementById("detail-title").textContent = "AI 故障诊断 · " + d.name;
+
+  const sensorHtml = d.sensors.map(s => {
+    const maxT = Math.max(...s.trend);
+    return `
+    <div class="sensor-row">
+      <div class="sl"><span>${s.n}</span><span class="sv ${s.over ? "over" : ""}">${s.v}${s.over ? " ↑超限" : ""}</span></div>
+      <div class="track"><div class="fill ${s.over ? "over" : ""}" style="width:${s.pct}%"></div><div class="th" style="left:${s.th}%"></div></div>
+      <div class="trend">${s.trend.map(t => `<i class="${t >= maxT * 0.92 && s.over ? "hi" : ""}" style="height:${Math.max(18, t / maxT * 100)}%"></i>`).join("")}</div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("detail-card").innerHTML = `
+    <div class="detail-head">
+      <div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:2px">${d.code} · ${d.name} · ${d.type}</div>
+        <span class="big-price" style="color:${scoreColor(d.score)}">${d.score}</span>
+        <span style="font-size:13px;color:var(--text-dim);margin-left:6px">设备健康分</span>
+      </div>
+      <div class="detail-meta">${d.info.map(x => `<div class="m"><div class="k">${x[0]}</div><div class="v">${x[1]}</div></div>`).join("")}</div>
+    </div>
+    <div class="detail-body">
+      <div class="interpret">
+        <div class="ai-head"><span class="ai-badge">AI 故障诊断</span><span class="time">实时生成 · 双校验通过（时序模型 × 工业规则库）</span></div>
+        <div class="seg"><h4><span class="idx">1</span>异常事实</h4><p>${it.fact}</p><div class="src">${it.srcs.map(x => `<span>${x}</span>`).join("")}</div></div>
+        <div class="seg"><h4><span class="idx">2</span>故障预判（RUL）</h4><p>${it.predict}</p></div>
+        <div class="seg"><h4><span class="idx">3</span>根因拆解</h4><p>${it.cause}</p></div>
+        <div class="seg"><h4><span class="idx">4</span>风险分级</h4><p>${it.risk}</p></div>
+        <div class="seg"><h4><span class="idx">5</span>维保建议</h4><p>${it.advice}</p></div>
+        <div class="disclaim">以上诊断由规则库与模型双校验生成，仅为运维辅助参考，不替代人工专业判断 · 高危操作需专业人员现场核验执行</div>
+      </div>
+      <div class="sensor-panel">
+        <h4>📡 实时传感 · 7 日趋势</h4>
+        ${sensorHtml}
+        <div class="opt-row"><span class="k">连续运行</span><span class="v">${d.hours}</span></div>
+        ${d.info.slice(3).map(x => `<div class="opt-row"><span class="k">${x[0]}</span><span class="v ${x[0].includes("RUL") || x[0].includes("状态") ? "warn" : x[0].includes("风险") ? (x[1].includes("紧急") || x[1].includes("高危") ? "up" : "warn") : ""}">${x[1]}</span></div>`).join("")}
+        <div class="sensor-note">黄色刻度为报警阈值位置 · 数据采样周期 10s · 振动评价依据 ISO 10816 标准</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAlerts() {
+  const w = WORKSHOPS[curWs];
+  document.getElementById("alerts-title").textContent = "实时分级预警 · " + w.name;
+  document.getElementById("alerts-feed").innerHTML = w.alerts.map(a => `
+    <div class="alert-item">
+      <div class="icon ${a.icon}">${a.lv === "4" ? "🔴" : a.lv === "3" ? "🟠" : a.lv === "2" ? "🟡" : "⚪"}</div>
+      <div class="body">
+        <div class="t">${a.t}<span class="lv-chip lv${a.lv}-chip">${a.lvTxt}</span></div>
+        <div class="d">${a.d}</div>
+        <div class="meta">${a.meta.map(m => m.startsWith("<") ? m : `<span>${m}</span>`).join("")}<span>${a.time}</span></div>
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ===== 工单视图 ===== */
+const STAGES = ["待处理", "处理中", "待核验", "已归档"];
+function renderOrders() {
+  const w = WORKSHOPS[curWs];
+  document.getElementById("orders-grid").innerHTML = STAGES.map(st => {
+    const list = w.orders.filter(o => {
+      if (st === "已归档") return o.st === "已归档" || o.st === "已核验";
+      return o.st === st;
+    });
+    return `
+    <div class="order-col">
+      <div class="oc-head">${st === "已归档" ? "已核验/归档" : st}<span class="cnt">${list.length}</span></div>
+      ${list.map(o => `
+        <div class="order-card">
+          <div class="od-id"><span>${o.id}</span><span class="lv-chip ${o.lv.includes("紧急") ? "lv4-chip" : o.lv.includes("高危") ? "lv3-chip" : "lv2-chip"}">${o.lv}</span></div>
+          <div class="od-t">${o.dev} · ${o.t}</div>
+          <div class="od-d">Agent 依据诊断结果生成，自动关联备件与 SOP</div>
+          <div class="od-f"><span class="who">${o.who}</span><span class="ddl ${o.ddl.includes("已完成") || o.ddl.includes("已执行") ? "safe" : ""}">⏱ ${o.ddl}</span></div>
+          <div class="progress-steps">${[1, 2, 3, 4].map(n => `<i class="${n <= o.steps ? "done" : ""}"></i>`).join("")}</div>
+        </div>`).join("") || '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-faint)">暂无工单</div>'}
+    </div>`;
+  }).join("");
+  document.getElementById("spare-strip").innerHTML = w.spares.map(s => `
+    <div class="spare-chip"><div class="sk">${s.k}</div><div class="sv ${s.cls}">${s.v}</div></div>
+  `).join("");
+}
+
+/* ===== 复盘 ===== */
+function renderReport() {
+  const r = WORKSHOPS[curWs].report;
+  const secs = r.secs.map((sec, si) => {
+    if (sec.table) {
+      return `<div class="report-sec"><h3><span class="n">${si + 1}</span>${sec.h}</h3>
+        <table class="mini-table">
+          <tr><th>设备</th><th>问题</th><th>状态/预判</th><th>处置</th></tr>
+          ${sec.table.map(row => `<tr><td><b>${row[0]}</b></td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td></tr>`).join("")}
+        </table></div>`;
+    }
+    return `<div class="report-sec"><h3><span class="n">${si + 1}</span>${sec.h}</h3><ul>${sec.items.map(i => `<li>${i}</li>`).join("")}</ul></div>`;
+  }).join("");
+  document.getElementById("report-card").innerHTML = `
+    <div class="report-head"><h2>${r.title}</h2><div class="sub">${r.sub}</div></div>${secs}
+  `;
+}
+
+/* ===== 切换 ===== */
+function selectDevice(i) { selDev = i; renderWatchlist(); renderDetail(); }
+
+function switchWs(mk) {
+  curWs = mk; selDev = 0;
+  renderStatBar(); renderWatchlist(); renderDetail(); renderAlerts(); renderOrders(); renderReport();
+}
+
+document.querySelectorAll(".ws-selector span").forEach(el => {
+  el.onclick = () => {
+    document.querySelectorAll(".ws-selector span").forEach(x => x.classList.remove("active"));
+    el.classList.add("active");
+    switchWs(el.dataset.ws);
+  };
+});
+
+document.querySelectorAll("nav .tab").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll("nav .tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + t.dataset.view).classList.add("active");
+  };
+});
+
+/* ===== 问答 Demo ===== */
+const qaBank = [
+  { k: ["振动", "超标", "排查", "注塑机"], a: `<b>ZS-03 注塑机振动排查指引：</b>（依据海天 MA 手册 §7.3 + 本厂案例 #A-1023）<br>1️⃣ 先看 Agent 诊断：当前 7.2mm/s，1× 频段主导 + 温度同步缓升 → 轴承磨损特征（置信度高）<br>2️⃣ 现场确认顺序：听诊主轴部位异响 → 手感机架振动分布 → 检查地脚螺栓（已排除松动）<br>3️⃣ 处置：工单 GD-1024 已生成（更换 6208-2RS 轴承 ×2 + 液压油取样）<br>4️⃣ 检修后空载试运行 30 分钟，振动 &lt;3.0mm/s 方可复机<div class="src-line">来源：海天MA维护手册 §7.3 · 案例库 #A-1023 · 当前传感数据</div><div class="risk-line">⚠ 检修作业需持证机修人员执行，停机挂牌遵照工厂安全规程。</div>` },
+  { k: ["轴承", "多久", "更换", "寿命"], a: `<b>空压机轴承更换周期：</b>（依据 LG-22/8 保养手册 §5）<br>• 主机轴承：设计寿命 40,000h，手册建议 20,000h 检查、异常即换<br>• 电机轴承：8,000-10,000h 补充润滑脂，20,000h 更换<br>• 实际以状态为准：振动值达 4.5mm/s（ISO C 区）或温升异常时提前更换<br><br>本厂 2 号空压机当前轴承状态正常（振动 5.2mm/s 为整机值，频谱显示非轴承特征）。<div class="src-line">来源：LG系列保养手册 §5 · 本厂设备台账</div>` },
+  { k: ["停", "远程", "关机", "启动"], a: `抱歉，我不能远程执行设备操作。<br><br>本系统仅提供<b>监控与运维辅助参考</b>，不具备设备控制权限——设备启停属于高危操作，必须由持证人员现场执行并遵守挂牌上锁（LOTO）规程。<br><br>如确认需要停机：① 联系当班运维主管；② 高危场景可由运维主管在 SCADA 系统按规程执行。<div class="risk-line">⚠ 「不做设备控制、只做状态辅助」是本产品的安全边界。</div>` },
+  { k: ["液压油", "换", "机油", "油品"], a: `<b>液压油/机油更换标准：</b>（依据本厂 SOP 液压系统分册）<br>• 注塑机液压油（L-HM46）：周期 4,000h 或 1 年，以先到为准；取样化验运动粘度超新油 ±10% 时提前更换<br>• 空压机油（专用）：周期 4,000h；<b>当前 KYJ-2 已超期 320h，已随工单 GD-1036 安排整换</b><br>• 化验不合格指标排序：粘度 → 酸值 → 水分 → 颗粒度<div class="src-line">来源：SOP-HYD-12 · LG保养手册 · 本厂维保台账</div>` },
+  { k: ["备件", "库存", "还有多少"], a: `<b>当前备件状态摘要：</b><br>⚠ 需要关注的：ISG80 叶轮总成（库存 0，紧急采购 ETA 36h）、导热油 L-QB320（15L，低于安全库存 40L）<br>✅ 充足的：6208-2RS 轴承 ×4、空压机油 46# ×80L、冷却塔皮带 ×4<br><br>完整台账与呆滞备件分析请查看「预警工单 → 备件智能提醒」。<div class="src-line">来源：备件台账 · 实时库存</div>` }
+];
+
+function reply(q) {
+  const hit = qaBank.find(item => item.k.some(k => q.includes(k)));
+  if (hit) return hit.a;
+  return `这个问题我在本厂知识库中<b>没有找到依据，无法确认</b>——我不会编造运维方案。<br><br>知识库现有内容：海天/LG/CK 系列设备手册、液压与油品 SOP、故障案例 1,047 条。你可以：① 换个问法；② 上传对应设备手册，我会自动解析入库后更新回答范围。<div class="risk-line">⚠ 无依据不输出是本产品的防幻觉硬约束。</div>`;
+}
+
+function sendChat() {
+  const input = document.getElementById("chat-input");
+  const q = input.value.trim();
+  if (!q) return;
+  const box = document.getElementById("chat-box");
+  box.insertAdjacentHTML("beforeend", `<div class="msg user">${q.replace(/</g, "&lt;")}</div>`);
+  box.insertAdjacentHTML("beforeend", `<div class="msg ai">${reply(q)}</div>`);
+  input.value = "";
+  box.scrollTop = box.scrollHeight;
+}
+document.getElementById("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") sendChat(); });
+document.querySelectorAll(".suggest span").forEach(s => {
+  s.onclick = () => { document.getElementById("chat-input").value = s.textContent; sendChat(); };
+});
+
+/* ===== 初始化 ===== */
+switchWs("a");
+</script>
+</body>
+</html>
