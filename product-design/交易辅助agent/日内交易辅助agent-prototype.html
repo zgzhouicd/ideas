@@ -362,6 +362,16 @@
   }
   .suggest span:hover { border-color: var(--accent); color: var(--accent); }
 
+  .bt-cmd {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; line-height: 1.6; padding: 12px 14px; margin: 0;
+    background: #141926; border: 1px solid var(--border); border-radius: 8px;
+    color: #c8d0e0; overflow-x: auto;
+  }
+  .bt-stat { display: flex; gap: 12px; flex-wrap: wrap; padding: 12px 16px; }
+  .bt-stat div { min-width: 100px; }
+  .bt-diff.ok { color: #3dcc9a; }
+  .bt-diff.bad { color: #ffb020; }
   .demo-note {
     margin-top: 16px; padding: 10px 14px; border-radius: 8px;
     background: rgba(245,158,11,.07); border: 1px dashed rgba(245,158,11,.35);
@@ -391,6 +401,7 @@
     <div class="tab" data-view="brief">盘前</div>
     <div class="tab" data-view="inbox">提醒</div>
     <div class="tab" data-view="report">复盘</div>
+    <div class="tab" data-view="backtest">回放</div>
     <div class="tab" data-view="chat">规则说明</div>
   </nav>
   <div class="header-right">
@@ -470,6 +481,16 @@
   <div class="view" id="view-report">
     <div class="card" id="report-card"></div>
     <div class="demo-note">打磨期关注：许可变更条数、MFE/MAE、自评 <b>做了 / 没做 / 误报</b>。用来调规则，不证明盈利。</div>
+  </div>
+
+  <!-- 历史回放 · 回测（Demo，真实跑 jobs/backtest.py） -->
+  <div class="view" id="view-backtest">
+    <div class="section-title"><h2>历史回放 · v0.1.0</h2></div>
+    <div class="grid-dashboard">
+      <div class="card" style="max-height:560px;overflow-y:auto" id="backtest-list"></div>
+      <div class="card" id="backtest-detail"></div>
+    </div>
+    <div class="demo-note">回放与实盘走同一套状态机，不发 Telegram，默认不调模型。真回测在终端跑 <code>jobs/backtest.py</code>，结果写入 <code>replay/</code>；本页仅展示结构与误判标注流程。</div>
   </div>
 
   <!-- 解释 -->
@@ -834,6 +855,43 @@ const SESSION = {
       "同簇只保留一只主标的",
       "AAPL 全天不操作，密度才正常"
     ]
+  },
+  backtest: {
+    ruleVersion: "v0.1.0",
+    compare: "v0.1.0 vs 实盘 inbox · 2026-10-08",
+    commands: [
+      "backtest replay --from 2026-10-01 --to 2026-10-31 --rules config/rules.yaml --clocks config/clocks.yaml --sessions config/sessions.yaml --calendar config/calendar.yaml --watchlist config/watchlist.yaml --no-llm",
+      "backtest diff --live inbox/2026-10-08.jsonl --sim replay/v0.1.0/2026-10-08/sim.jsonl"
+    ],
+    days: [
+      {
+        date: "2026-10-08",
+        permits: 3,
+        falseOpen: 1,
+        diffWithLive: 0,
+        maeP50: "-0.4%",
+        note: "与实盘 inbox 逐拍一致",
+        events: [
+          { t: "10:33", sym: "NVDA", live: "允许开", sim: "允许开", verdict: "ok", fact: "reclaim_ok · vol 1.42" },
+          { t: "10:33", sym: "META", live: "允许开", sim: "允许开", verdict: "ok", fact: "reclaim_ok" },
+          { t: "10:20", sym: "COIN", live: "结构失效", sim: "结构失效", verdict: "false_open", fact: "6 根无进展；标注误报供周日改参" }
+        ]
+      },
+      {
+        date: "2026-10-07",
+        permits: 2,
+        falseOpen: 0,
+        diffWithLive: null,
+        maeP50: "-0.3%",
+        note: "仅回放，无实盘对照",
+        events: [
+          { t: "10:39", sym: "AMD", live: "—", sim: "不操作", verdict: "ok", fact: "同簇压制 · 主标的 NVDA" }
+        ]
+      }
+    ],
+    labels: [
+      { permit_id: "p-20261008-COIN-2", verdict: "false_open", note: "触发后横盘，本应更早 conflicts" }
+    ]
   }
 };
 
@@ -1029,6 +1087,53 @@ function renderDetailHtml(stock) {
   return `<b>${stock.sym}</b> — ${it.fact}<br><br>${it.read}`;
 }
 
+let selBacktest = 0;
+function renderBacktest() {
+  const b = SESSION.backtest;
+  document.getElementById("backtest-list").innerHTML = `
+    <div class="report-sec" style="border:none">
+      <h3 style="margin-bottom:8px">怎么跑（本机）</h3>
+      <pre class="bt-cmd">${b.commands.join("\n")}</pre>
+      <p style="padding:12px 16px 0;font-size:12px;color:var(--text-dim);line-height:1.6">
+        1）历史 K 线写入 SQLite → 2）replay 模式跑 bar_loop → 3）产出 sim.jsonl → 4）与 inbox diff → 5）标误报 → 6）周日改 rules 再回放对比。
+      </p>
+    </div>
+    ${b.days.map((d, i) => `
+      <div class="inbox-item ${selBacktest === i ? "selected" : ""}" onclick="selectBacktest(${i})">
+        <div class="ih"><span class="type">${d.date}</span><span style="font-size:11px;color:var(--text-faint)">允许开 ${d.permits} · 误报 ${d.falseOpen}</span></div>
+        <div class="ip">${d.note}</div>
+      </div>`).join("")}`;
+  const day = b.days[selBacktest];
+  document.getElementById("backtest-detail").innerHTML = `
+    <div class="report-head">
+      <h2>${day.date} · ${b.ruleVersion}</h2>
+      <div class="sub">${b.compare}${day.diffWithLive != null ? " · diff " + day.diffWithLive + " 拍" : ""} · MAE 中位 ${day.maeP50}</div>
+    </div>
+    <div class="bt-stat">
+      <div><div style="font-size:11px;color:var(--text-faint)">允许开</div><div style="font-size:20px;font-weight:700">${day.permits}</div></div>
+      <div><div style="font-size:11px;color:var(--text-faint)">误报标注</div><div style="font-size:20px;font-weight:700;color:#ffb020">${day.falseOpen}</div></div>
+    </div>
+    <div class="report-sec">
+      <h3 style="margin-bottom:8px">许可逐拍（实盘 vs 回放）</h3>
+      <table class="mini-table">
+        <tr><th>时间</th><th>标的</th><th>实盘</th><th>回放</th><th>标注</th><th>事实</th></tr>
+        ${day.events.map(e => `<tr>
+          <td>${e.t}</td><td><b>${e.sym}</b></td>
+          <td>${e.live}</td><td>${e.sim}</td>
+          <td class="${e.verdict === "false_open" ? "bt-diff bad" : "bt-diff ok"}">${e.verdict}</td>
+          <td style="color:var(--text-dim)">${e.fact}</td></tr>`).join("")}
+      </table>
+    </div>
+    <div class="report-sec">
+      <h3 style="margin-bottom:8px">误报 labels.yaml（人工）</h3>
+      <ul style="padding-left:18px;font-size:13px;color:var(--text-dim)">
+        ${b.labels.map(l => `<li><b>${l.permit_id}</b> · ${l.verdict} — ${l.note}</li>`).join("")}
+      </ul>
+    </div>`;
+}
+
+function selectBacktest(i) { selBacktest = i; renderBacktest(); }
+
 function renderReport() {
   const r = SESSION.report;
   document.getElementById("report-card").innerHTML = `
@@ -1106,6 +1211,7 @@ renderAlerts();
 renderBrief();
 renderInbox();
 renderReport();
+renderBacktest();
 </script>
 </body>
 </html>

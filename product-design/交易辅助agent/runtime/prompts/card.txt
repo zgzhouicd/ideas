@@ -1,0 +1,8 @@
+# 固定句。只填事实单、规则阈值和证伪卡 id 里已经出现的数字。禁止买入、卖出、股数、市价。
+trigger: "{label}。结论是 {setup_read}。收盘 {close}，VWAP {vwap}，量比 {vol_ratio}。作废：收盘跌破 {kill_px} 且量比大于 {invalid_vol_ratio}。还剩 {bars_left} 根。"
+hold: "{label}。结论是 {setup_read}。作废价 {kill_px}。还剩 {bars_left} 根。"
+exit: "{label}。结论是 {setup_read}。作废价 {kill_px}。"
+idle: "{label}。结论是 {setup_read}。"
+suppressed: "{label}。结论是 {setup_read}。证伪卡 {correction_id}。"
+quarantine: "数据缺失，本拍不作数。许可未改。"
+warning: "本预警桶收盘 {close_w}。许可未改。"

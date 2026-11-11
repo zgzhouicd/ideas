@@ -1,0 +1,17 @@
+in_play_max: 8
+symbols:
+  - symbol: AAPL
+    cluster: mega
+    enabled: true
+  - symbol: AMD
+    cluster: semi
+    enabled: true
+  - symbol: NVDA
+    cluster: semi
+    enabled: true
+  - symbol: META
+    cluster: mega
+    enabled: true
+  - symbol: TSLA
+    cluster: mega
+    enabled: true

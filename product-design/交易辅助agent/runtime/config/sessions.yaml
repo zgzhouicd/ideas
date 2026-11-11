@@ -1,0 +1,9 @@
+timezone: America/New_York
+rth_open: "09:30"
+rth_close: "16:00"
+block_open_until: "10:00"
+lunch_start: "11:30"
+lunch_end: "14:00"
+stop_new_at: "15:30"
+early_close_dates: []
+early_close_time: "13:00"

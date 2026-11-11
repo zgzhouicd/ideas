@@ -1,0 +1,6 @@
+provider: openai_compatible
+base_url: ""
+model: ""
+temperature: 0
+max_output_tokens: 400
+timeout_s: 8

@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+data/*.sqlite
+data/*.sqlite-journal
+inbox/*.jsonl
+replay/
+recap/
+outbox/
+corrections/*.jsonl
